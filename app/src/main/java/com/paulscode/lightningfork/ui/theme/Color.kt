@@ -33,10 +33,12 @@ val Danger = Color(0xFFF46E6E)
 /** Bitcoin's orange, for the on-chain balance's mark (the dashboard's app icon). */
 val BitcoinOrange = Color(0xFFFF9F2E)
 
+// The dashboard's gradient, its sky end deepened so white text on it stays
+// readable on a phone in daylight.
 val AccentGradient = Brush.horizontalGradient(
     0f to AccentDeep,
-    0.55f to Accent,
-    1f to AccentSky,
+    0.6f to Accent,
+    1f to Color(0xFF6AAEFF),
 )
 
 val LightningGradient = Brush.linearGradient(listOf(AccentDeep, Color(0xFF7CC6FF)))

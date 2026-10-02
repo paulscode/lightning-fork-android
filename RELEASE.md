@@ -1,6 +1,6 @@
 # Release process
 
-Key Value Copy ships two ways from one build:
+Lightning Fork ships two ways from one build:
 
 - **Google Play** — an `.aab` (App Bundle), signed with your **upload key**.
 - **Sideload** — a universal `.apk` on the GitHub release, self-signed with the
@@ -14,7 +14,7 @@ machine only ever produces *unsigned* artifacts.
 ## Signing model (read once)
 
 - **Play App Signing** is on. Google holds the real **app signing key** and
-  re-signs every download. You hold only the **upload key** (`kvc-upload.jks`).
+  re-signs every download. You hold only the **upload key** (`lf-upload.jks`).
   Its private half **never leaves your control** — Google only gets the upload
   *certificate* (public) and verifies your uploads against it. If the upload key
   is ever lost/compromised, you reset it with Google; it's recoverable.
@@ -35,12 +35,12 @@ machine only ever produces *unsigned* artifacts.
 
 1. **Upload keystore** — already created on the air-gapped machine and backed up:
    ```
-   keytool -genkeypair -v -keystore kvc-upload.jks \
-     -keyalg RSA -keysize 2048 -validity 10000 -alias kvc-upload
+   keytool -genkeypair -v -keystore lf-upload.jks \
+     -keyalg RSA -keysize 2048 -validity 10000 -alias lf-upload
    ```
 2. **Export the upload certificate** (public) to register with Play:
    ```
-   keytool -export -rfc -keystore kvc-upload.jks -alias kvc-upload -file upload_certificate.pem
+   keytool -export -rfc -keystore lf-upload.jks -alias lf-upload -file upload_certificate.pem
    ```
 3. **Play Console** — create the app, enroll in **Play App Signing** (let Google
    generate the app signing key), and register `upload_certificate.pem` as the
@@ -81,8 +81,8 @@ and set `versionName`. Commit.
 release/build-artifacts.sh
 ```
 Builds all four Arti ABIs, then the AAB + a universal APK, and stages them under
-`release/staging/` as `key-value-copy-<ver>.aab` and
-`key-value-copy-<ver>-unsigned.apk`.
+`release/staging/` as `lightning-fork-<ver>.aab` and
+`lightning-fork-<ver>-unsigned.apk`.
 
 ### 3. Transfer to the air-gapped machine
 Copy `release/staging/` across your usual air-gap medium (USB, etc.).
@@ -90,7 +90,7 @@ Copy `release/staging/` across your usual air-gap medium (USB, etc.).
 ### 4. Sign + checksum (air-gapped machine)
 ```
 APKSIGNER_JAR=/path/to/apksigner.jar \
-KEYSTORE=~/keys/kvc-upload.jks KEY_ALIAS=kvc-upload \
+KEYSTORE=~/keys/lf-upload.jks KEY_ALIAS=lf-upload \
 release/sign-and-checksum.sh release/staging
 ```
 (Or, if you copied the whole build-tools dir, `APKSIGNER=.../build-tools/<ver>/apksigner`.)
@@ -99,8 +99,10 @@ writes `SHA256SUMS` over the sideload APK, and PGP-signs it to `SHA256SUMS.asc`.
 
 ### 5. Transfer signed artifacts back, then smoke-test
 Bring back the signed `.apk`, `.aab`, `SHA256SUMS`, `SHA256SUMS.asc`.
-**Install the signed release APK on a device and smoke-test** (pair, sync, reveal,
-lock) — the release build is R8-minified, so exercise it before publishing.
+**Install the signed release APK on a device and smoke-test** (pair, balances,
+receive and send a small amount on each layer, the app lock, and the same over
+Tor with the phone off the home network) — the release build is R8-minified,
+so exercise it before publishing.
 
 ### 6. Publish
 - **Play:** upload the `.aab` to an **internal testing** track first; promote once

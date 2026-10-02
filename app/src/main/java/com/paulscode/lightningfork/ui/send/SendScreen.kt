@@ -523,7 +523,12 @@ private fun DoneStep(ui: SendUi, onClose: () -> Unit) {
             AnimatedAmount(r.amountSat, ui.unit, style = MaterialTheme.typography.displaySmall, color = TextPrimary)
             Spacer(Modifier.height(24.dp))
             AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
-                InfoRow(if (r.lightning) "Routing fee" else "Network fee", Format.amountWithUnit(r.feeSat, ui.unit))
+                InfoRow(
+                    if (r.lightning) "Routing fee" else "Network fee",
+                    // The node reports a Lightning fee as paid; an on-chain one
+                    // here is the estimate it was sent at.
+                    (if (r.lightning) "" else "≈ ") + Format.amountWithUnit(r.feeSat, ui.unit),
+                )
                 Row(
                     Modifier.fillMaxWidth().clickable {
                         Clipboard.copySensitive(context, r.reference, if (r.lightning) "preimage" else "txid")

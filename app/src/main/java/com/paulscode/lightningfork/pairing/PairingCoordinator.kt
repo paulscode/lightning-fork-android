@@ -13,6 +13,19 @@ import com.paulscode.lightningfork.net.TorController
 import com.paulscode.lightningfork.net.TorStatus
 import com.paulscode.lightningfork.net.Transport
 
+/** Reading the dashboard's pairing code. */
+object PairingCodes {
+    /** The pairing payload in a scanned or typed text, or null. */
+    fun parse(text: String): PairingPayload? =
+        runCatching { ApiJson.decodeFromString(PairingPayload.serializer(), text.trim()) }
+            .getOrNull()
+            ?.takeIf { it.lf == 1 && it.code.startsWith("e_") && it.code.length in 10..80 }
+
+    /** Whether the code has run out, by the phone's clock. */
+    fun isExpired(payload: PairingPayload, nowMs: Long): Boolean =
+        payload.exp != null && payload.exp < nowMs
+}
+
 /** Coarse progress for the pairing screen. */
 enum class PairPhase { Reaching, StartingTor, Claiming, Finishing, Done }
 
@@ -37,15 +50,10 @@ class PairingCoordinator(
     private val secrets: SecretStore,
     private val settings: SettingsStore,
 ) {
-    /** The pairing payload in a scanned or typed text, or null. */
-    fun parsePayload(text: String): PairingPayload? =
-        runCatching { ApiJson.decodeFromString(PairingPayload.serializer(), text.trim()) }
-            .getOrNull()
-            ?.takeIf { it.lf == 1 && it.code.startsWith("e_") }
+    fun parsePayload(text: String): PairingPayload? = PairingCodes.parse(text)
 
-    /** Whether the code has run out, by the phone's clock. */
     fun isExpired(payload: PairingPayload, nowMs: Long = System.currentTimeMillis()): Boolean =
-        payload.exp != null && payload.exp < nowMs
+        PairingCodes.isExpired(payload, nowMs)
 
     suspend fun pair(
         payload: PairingPayload,

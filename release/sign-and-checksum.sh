@@ -3,7 +3,7 @@
 # a SHA256SUMS for the sideload APK. Never touches the network.
 #
 #   APKSIGNER_JAR=/path/to/apksigner.jar \      # recommended (one file + a JDK)
-#   KEYSTORE=~/keys/kvc-upload.jks KEY_ALIAS=kvc-upload \
+#   KEYSTORE=~/keys/lf-upload.jks KEY_ALIAS=lf-upload \
 #   ./sign-and-checksum.sh <dir-with-unsigned-artifacts>
 #
 # Requires: apksigner for the APK (either APKSIGNER_JAR=apksigner.jar run via the
@@ -12,8 +12,8 @@
 set -euo pipefail
 
 dir="${1:-$(cd "$(dirname "$0")" && pwd)/staging}"
-: "${KEYSTORE:?set KEYSTORE=/path/to/kvc-upload.jks}"
-: "${KEY_ALIAS:=kvc-upload}"
+: "${KEYSTORE:?set KEYSTORE=/path/to/lf-upload.jks}"
+: "${KEY_ALIAS:=lf-upload}"
 
 command -v jarsigner >/dev/null || { echo "jarsigner not found (install a JDK)" >&2; exit 1; }
 

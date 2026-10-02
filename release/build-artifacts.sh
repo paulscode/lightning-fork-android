@@ -10,7 +10,7 @@ staging="$here/staging"
 
 ver="$(grep -oE 'versionName = "[^"]+"' "$root/app/build.gradle.kts" | head -1 | cut -d'"' -f2)"
 [ -n "$ver" ] || { echo "could not read versionName" >&2; exit 1; }
-echo "Building Key Value Copy v$ver (unsigned)…"
+echo "Building Lightning Fork v$ver (unsigned)…"
 
 # All ABIs so the universal APK and the AAB cover every device.
 ABIS="arm64-v8a armeabi-v7a x86_64 x86" "$root/rust/build-android.sh"
@@ -27,8 +27,8 @@ fi
 mkdir -p "$staging"
 apk="$(find "$root/app/build/outputs/apk/release" -name '*-release-unsigned.apk' | head -1)"
 aab="$(find "$root/app/build/outputs/bundle/release" -name '*-release.aab' | head -1)"
-cp "$apk" "$staging/key-value-copy-$ver-unsigned.apk"
-cp "$aab" "$staging/key-value-copy-$ver.aab"
+cp "$apk" "$staging/lightning-fork-$ver-unsigned.apk"
+cp "$aab" "$staging/lightning-fork-$ver.aab"
 
 echo
 echo "Unsigned artifacts staged in release/staging/:"

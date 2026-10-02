@@ -172,7 +172,7 @@ async fn serve_socks(client: Arc<TorClient<PreferredRuntime>>, listener: TcpList
         let client = client.clone();
         tokio::spawn(async move {
             if let Err(e) = handle(client, sock).await {
-                tracing::warn!("socks conn: {e:?}");
+                tracing::debug!("socks conn: {e:?}");
             }
         });
     }

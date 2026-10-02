@@ -169,7 +169,7 @@ private fun ActivityRow(item: ActivityItem, unit: AmountUnit) {
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                (if (incoming) "+" else "−") + Format.amount(item.amountSat, unit),
+                (if (incoming) "+" else "−") + Format.amountWithUnit(item.amountSat, unit),
                 style = MaterialTheme.typography.titleSmall,
                 color = when {
                     item.status == "failed" -> TextFaint
@@ -178,9 +178,8 @@ private fun ActivityRow(item: ActivityItem, unit: AmountUnit) {
                 },
             )
             if (!incoming && item.feeSat > 0) {
-                Text("fee ${Format.amount(item.feeSat, unit)}", style = MaterialTheme.typography.bodySmall, color = TextFaint)
+                Text("fee ${Format.amountWithUnit(item.feeSat, unit)}", style = MaterialTheme.typography.bodySmall, color = TextFaint)
             }
         }
     }
-    Spacer(Modifier.height(0.dp))
 }

@@ -105,7 +105,7 @@ fun SendScreen(
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var scanning by remember { mutableStateOf(startScanning) }
+    var scanning by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(startScanning) }
 
     fun paste() {
         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -234,7 +234,7 @@ private fun BigChoice(
 }
 
 private fun kindTitle(t: PaymentTarget): String = when (t.kind) {
-    "onchain" -> "Bitcoin address"
+    "onchain" -> "On-chain address"
     "bolt11" -> "Lightning invoice"
     "offer" -> "Lightning offer"
     "bolt12-invoice" -> "Lightning invoice (offer)"
@@ -352,11 +352,24 @@ private fun ReviewStep(ui: SendUi, vm: SendViewModel, wallet: WalletState) {
                 )
             }
             Spacer(Modifier.height(12.dp))
-            Notice(ui.feesError, kind = NoticeKind.Warning)
+            if (ui.onchain) {
+                Notice(ui.estimateError)
+                if (ui.feesError != null) {
+                    Notice(ui.feesError, kind = NoticeKind.Warning)
+                    com.paulscode.lightningfork.ui.components.QuietButton("Try again", onClick = vm::reloadFees)
+                }
+            }
             ui.fees?.warning?.let { Notice(it, kind = NoticeKind.Info, modifier = Modifier.padding(top = 8.dp)) }
             Spacer(Modifier.height(16.dp))
         }
-        val blocker = vm.blocker(ui)
+        // Re-read once a second, so the button notices a request expiring.
+        val tick by androidx.compose.runtime.produceState(0L, t.expiresAt) {
+            while (t.expiresAt != null) {
+                delay(1000)
+                value++
+            }
+        }
+        val blocker = tick.let { vm.blocker(ui) }
         val amount = ui.amountSat
         PrimaryButton(
             when {
@@ -570,7 +583,7 @@ private fun FailedStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit) {
             if (ui.uncertain) {
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    "Checking again is safe: your node will not pay twice.",
+                    "Check again asks your node about this same payment; it never pays twice. Your activity shows it too once it went through.",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextFaint,
                     textAlign = TextAlign.Center,

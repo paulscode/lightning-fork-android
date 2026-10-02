@@ -1,6 +1,7 @@
 package com.paulscode.lightningfork.ui.pair
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,12 +32,24 @@ import com.paulscode.lightningfork.ui.theme.TextMuted
 import com.paulscode.lightningfork.ui.theme.TextPrimary
 import com.paulscode.lightningfork.ui.theme.Warning
 
-/** The node no longer accepts this phone's key. Nothing is wiped until the user says so. */
+/** Why the phone must pair again; nothing is wiped until the user says so. */
 @Composable
-fun RemovedScreen(onPairAgain: () -> Unit, onTryAgain: () -> Unit) {
+fun RemovedScreen(
+    reason: com.paulscode.lightningfork.wallet.Repair,
+    onPairAgain: () -> Unit,
+    onTryAgain: () -> Unit,
+) {
+    val (title, text) = when (reason) {
+        com.paulscode.lightningfork.wallet.Repair.Removed -> "This phone was removed" to
+            "Your node no longer accepts this phone's key. It was removed in the dashboard, or the dashboard's list of phones was reset. Your funds are on your node and are not affected."
+        com.paulscode.lightningfork.wallet.Repair.KeyLost -> "This phone's key is gone" to
+            "Android no longer holds the key that protected this phone's access to your node, which happens when the screen lock is removed or the phone resets its keys. Pair the phone again. Your funds are on your node and are not affected."
+        com.paulscode.lightningfork.wallet.Repair.CertificateChanged -> "Your node's certificate changed" to
+            "Your node answers with a certificate other than the one this phone was paired with. That happens after the node is restored or moved to another server, or reinstalled. If none of that happened, something on this network may be in the way: try another network first. To use the node as it is now, pair again. Your funds are on your node and are not affected."
+    }
     Column(Modifier.fillMaxSize().background(Page).statusBarsPadding().navigationBarsPadding().padding(28.dp)) {
         Column(
-            Modifier.weight(1f).fillMaxWidth(),
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
@@ -47,10 +60,10 @@ fun RemovedScreen(onPairAgain: () -> Unit, onTryAgain: () -> Unit) {
                 Icon(Icons.Rounded.LinkOff, contentDescription = null, tint = Warning, modifier = Modifier.size(44.dp))
             }
             Spacer(Modifier.height(24.dp))
-            Text("This phone was removed", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
+            Text(title, style = MaterialTheme.typography.headlineSmall, color = TextPrimary, textAlign = TextAlign.Center)
             Spacer(Modifier.height(10.dp))
             Text(
-                "Your node no longer accepts this phone's key. It was removed in the dashboard, or the dashboard's list of phones was reset. Your funds are on your node and are not affected.",
+                text,
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextMuted,
                 textAlign = TextAlign.Center,

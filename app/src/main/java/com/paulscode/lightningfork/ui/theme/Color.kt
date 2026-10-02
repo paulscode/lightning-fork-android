@@ -30,8 +30,6 @@ val Success = Color(0xFF00CD98)
 val Warning = Color(0xFFF6B900)
 val Danger = Color(0xFFF46E6E)
 
-/** Bitcoin's orange, for the on-chain balance's mark (the dashboard's app icon). */
-val BitcoinOrange = Color(0xFFFF9F2E)
 
 // The dashboard's gradient, its sky end deepened so white text on it stays
 // readable on a phone in daylight.

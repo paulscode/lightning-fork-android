@@ -144,7 +144,8 @@ class PairingCoordinator(
                 else -> e.message
             }
             return PairResult.Failure(msg, recoverable = e.status != 401)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             return PairResult.Failure(
                 "Can't reach your node. Check that this phone is online, then try again.",
                 recoverable = true,

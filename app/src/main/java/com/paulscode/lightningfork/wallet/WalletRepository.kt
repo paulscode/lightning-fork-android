@@ -2,6 +2,10 @@ package com.paulscode.lightningfork.wallet
 
 import com.paulscode.lightningfork.data.SettingsStore
 import com.paulscode.lightningfork.net.ApiException
+import com.paulscode.lightningfork.net.CertificateChangedException
+import com.paulscode.lightningfork.net.KeyUnavailableException
+import kotlinx.coroutines.CancellationException
+import com.paulscode.lightningfork.net.CaPinning
 import com.paulscode.lightningfork.net.NodeApi
 import com.paulscode.lightningfork.net.NodeInfo
 import com.paulscode.lightningfork.net.Route
@@ -20,6 +24,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+/** Why a paired phone can no longer use its node. */
+enum class Repair {
+    /** The node no longer accepts the key: removed in the dashboard. */
+    Removed,
+    /** The Keystore key that protects the device key is gone. */
+    KeyLost,
+    /** The node's certificate no longer chains to the root pinned at pairing. */
+    CertificateChanged,
+}
+
 /** How the app is talking to the node. */
 enum class Connection { Connecting, Lan, Tor, Offline }
 
@@ -33,8 +47,8 @@ data class WalletState(
     val refreshing: Boolean = false,
     /** Why the last refresh failed, if it did. Shown without hiding the numbers. */
     val error: String? = null,
-    /** The node no longer knows this phone's key. */
-    val revoked: Boolean = false,
+    /** Why this phone must pair again, if it must. The user is asked first. */
+    val repair: Repair? = null,
     /** USD per BTC, when known and wanted. */
     val usdPrice: Double? = null,
 )
@@ -62,12 +76,19 @@ class WalletRepository(
     val state: StateFlow<WalletState> = _state
 
     private var poller: Job? = null
+    @Volatile private var generation = 0
+    private var certFailures = 0
     private val refreshing = Mutex()
     private var lastPriceMs = 0L
     private var lastNodeMs = 0L
 
+    private val _foreground = MutableStateFlow(false)
+    /** Whether the app is in front; screens that poll wait while it is not. */
+    val foreground: StateFlow<Boolean> = _foreground
+
     /** Poll while the app is in the foreground. */
     fun setForeground(foreground: Boolean) {
+        _foreground.value = foreground
         if (foreground) {
             if (poller?.isActive == true) return
             poller = scope.launch {
@@ -90,8 +111,10 @@ class WalletRepository(
 
     /** Refresh now (pull to refresh, after a payment). Returns whether it worked. */
     suspend fun refresh(): Boolean {
-        if (_state.value.revoked) return false
+        if (_state.value.repair != null) return false
+        val gen = generation
         return refreshing.withLock {
+            if (gen != generation) return@withLock false
             _state.update {
                 it.copy(
                     refreshing = true,
@@ -100,7 +123,10 @@ class WalletRepository(
             }
             try {
                 val wallet = api.wallet()
+                // Unpaired while this was on its way: drop it.
+                if (gen != generation) return@withLock false
                 val now = System.currentTimeMillis()
+                certFailures = 0
                 settings.lastWallet = wallet
                 settings.lastWalletAtMs = now
                 _state.update {
@@ -115,31 +141,50 @@ class WalletRepository(
                 if (now - lastNodeMs > 5 * 60_000) refreshNode()
                 if (settings.showFiat && now - lastPriceMs > 5 * 60_000) refreshPrice()
                 true
+            } catch (e: CancellationException) {
+                // Left the foreground mid-refresh: not a failure to show.
+                _state.update { it.copy(refreshing = false) }
+                throw e
             } catch (e: ApiException) {
+                if (gen != generation) return@withLock false
                 // A 401 is checked once more before the phone is called
                 // removed: the user is then asked, never unpaired silently.
-                val revoked = e.status == 401 && confirmRevoked()
+                val removed = e.status == 401 && confirmRevoked()
                 _state.update {
                     it.copy(
                         refreshing = false,
                         error = e.message,
-                        revoked = revoked,
+                        repair = if (removed) Repair.Removed else null,
                         connection = if (transport.route.value == Route.Tor) Connection.Tor else Connection.Lan,
                     )
                 }
                 false
-            } catch (e: com.paulscode.lightningfork.net.KeyUnavailableException) {
-                _state.update { it.copy(refreshing = false, error = e.message) }
+            } catch (e: KeyUnavailableException) {
+                _state.update {
+                    it.copy(refreshing = false, error = e.message, repair = if (e.lost) Repair.KeyLost else null)
+                }
                 false
-            } catch (e: Exception) {
-                val torFailed = tor.status.value == TorStatus.Failed
+            } catch (e: CertificateChangedException) {
+                // One failure could be a network in the way; three in a row
+                // across a minute or more is the node's certificate.
+                certFailures++
                 _state.update {
                     it.copy(
                         refreshing = false,
-                        error = if (torFailed) "Can't reach your node, and Tor could not start." else "Can't reach your node right now.",
+                        error = e.message,
                         connection = Connection.Offline,
+                        repair = if (certFailures >= 3) Repair.CertificateChanged else null,
                     )
                 }
+                false
+            } catch (e: Exception) {
+                if (gen != generation) return@withLock false
+                val message = when (tor.status.value) {
+                    TorStatus.Failed -> "Can't reach your node, and Tor could not start."
+                    TorStatus.Bootstrapping -> "Connecting to your node over Tor…"
+                    else -> "Can't reach your node right now."
+                }
+                _state.update { it.copy(refreshing = false, error = message, connection = Connection.Offline) }
                 false
             }
         }
@@ -150,6 +195,8 @@ class WalletRepository(
         return try {
             api.wallet()
             false
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: ApiException) {
             e.status == 401
         } catch (e: Exception) {
@@ -158,7 +205,10 @@ class WalletRepository(
     }
 
     /** Back to normal after the user chose to try again. */
-    fun clearRevoked() = _state.update { it.copy(revoked = false, error = null) }
+    fun clearRepair() {
+        certFailures = 0
+        _state.update { it.copy(repair = null, error = null) }
+    }
 
     private suspend fun refreshNode() {
         runCatching { api.bootstrap() }.onSuccess { boot ->
@@ -170,13 +220,22 @@ class WalletRepository(
         // LAN address, and the other way round.
         runCatching { api.endpoints() }.onSuccess { fresh ->
             val current = settings.endpoints
+            // A root is adopted only if it hashes to the fingerprint the user
+            // paired with; one paired over an http onion without a fingerprint
+            // takes the root the node hands over that authenticated channel.
+            val adopt = fresh.caPem?.takeIf { pem ->
+                current.caPem == null && runCatching {
+                    val cert = CaPinning.parsePem(pem)
+                    val expected = current.caSha256 ?: fresh.caSha256
+                    expected != null && CaPinning.matchesFingerprint(cert, expected)
+                }.getOrDefault(false)
+            }
             val merged = current.copy(
                 onionUrl = fresh.onionUrl ?: current.onionUrl,
                 lanUrl = fresh.lanUrl ?: current.lanUrl,
                 lanIp = fresh.lanIp ?: current.lanIp,
-                // The root only changes with a new fingerprint the user saw; a
-                // node that hands over a different one is not trusted here.
-                caPem = current.caPem ?: fresh.caPem?.takeIf { fresh.caSha256 == current.caSha256 },
+                caPem = current.caPem ?: adopt,
+                caSha256 = current.caSha256 ?: adopt?.let { fresh.caSha256 },
             )
             if (merged != current) {
                 settings.endpoints = merged
@@ -198,8 +257,12 @@ class WalletRepository(
     }
 
     fun reset() {
+        generation++
         poller?.cancel()
         poller = null
+        lastNodeMs = 0
+        lastPriceMs = 0
+        certFailures = 0
         _state.value = WalletState()
     }
 }

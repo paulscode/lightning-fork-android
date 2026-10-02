@@ -12,8 +12,10 @@ import com.paulscode.lightningfork.net.OnchainEstimateRequest
 import com.paulscode.lightningfork.net.OnchainSendRequest
 import com.paulscode.lightningfork.net.PayRequest
 import com.paulscode.lightningfork.net.PaymentTarget
+import com.paulscode.lightningfork.net.PendingSend
 import com.paulscode.lightningfork.util.Format
 import com.paulscode.lightningfork.wallet.WalletRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -84,15 +86,36 @@ class SendViewModel(
     private val wallet: WalletRepository,
     private val settings: SettingsStore,
     prefill: String?,
+    resume: Boolean = false,
 ) : ViewModel() {
     private val _ui = MutableStateFlow(SendUi(unit = settings.unit))
     val ui: StateFlow<SendUi> = _ui
 
     private var estimateJob: Job? = null
     private var requestId = NodeApi.newRequestId()
+    private var lastSent: PendingSend? = null
 
     init {
-        if (!prefill.isNullOrBlank()) submit(prefill)
+        val pending = if (resume) settings.pendingSend else null
+        if (pending != null) {
+            // A send whose outcome the app never heard: ask about it now.
+            requestId = pending.onchain?.requestId ?: pending.pay?.requestId ?: requestId
+            execute(pending)
+        } else if (!prefill.isNullOrBlank()) {
+            submit(prefill)
+        }
+        // A sweep's amount follows the balance it sweeps.
+        viewModelScope.launch {
+            var last: Long? = null
+            wallet.state.collect { st ->
+                val confirmed = st.wallet?.onchain?.confirmedSat ?: return@collect
+                if (last != null && confirmed != last && _ui.value.step == SendStep.Review && _ui.value.onchain && _ui.value.sendAll) {
+                    _ui.update { it.copy(estimate = null) }
+                    scheduleEstimate()
+                }
+                last = confirmed
+            }
+        }
     }
 
     fun onInput(text: String) = _ui.update { it.copy(input = text, inputError = null) }
@@ -180,12 +203,19 @@ class SendViewModel(
         scheduleEstimate()
     }
 
+    fun reloadFees() {
+        _ui.update { it.copy(feesError = null) }
+        loadFees()
+    }
+
     private fun loadFees() {
         viewModelScope.launch {
             try {
                 val fees = api.fees()
                 _ui.update { it.copy(fees = fees, feesError = null) }
                 scheduleEstimate()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _ui.update { it.copy(feesError = (e as? ApiException)?.message ?: "Can't get fee rates from your node.") }
             }
@@ -203,91 +233,131 @@ class SendViewModel(
             _ui.update { it.copy(estimate = null, estimateError = null, estimating = false) }
             return
         }
-        estimateJob = viewModelScope.launch {
+        val job = viewModelScope.launch {
             delay(350)
             _ui.update { it.copy(estimating = true) }
             try {
                 val est = api.estimateOnchain(
                     OnchainEstimateRequest(address = t.address ?: t.request, amountSat = amount, sendAll = s.sendAll, satPerVbyte = rate)
                 )
+                // A newer estimate was asked for meanwhile: this one is stale.
+                if (estimateJob !== coroutineContext[Job]) return@launch
                 _ui.update { it.copy(estimate = est, estimateError = null, estimating = false) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: ApiException) {
+                if (estimateJob !== coroutineContext[Job]) return@launch
                 _ui.update { it.copy(estimate = null, estimateError = e.message, estimating = false) }
             } catch (e: Exception) {
+                if (estimateJob !== coroutineContext[Job]) return@launch
                 _ui.update { it.copy(estimating = false, estimateError = "Couldn't work out the fee. Check the connection.") }
             }
         }
+        estimateJob = job
     }
 
     /** Why the current review can't be sent yet, or null when it can. */
     fun blocker(s: SendUi = _ui.value): String? {
         val t = s.active ?: return "Nothing to pay"
         val w = wallet.state.value.wallet
+        // Expiry by the clock now, not when the request was read.
+        val expiresAt = t.expiresAt
+        if (t.expired || (expiresAt != null && expiresAt > 0 && expiresAt <= System.currentTimeMillis() / 1000)) {
+            return "This request has expired"
+        }
+        if (s.onchain && s.estimateError != null) return "Can't send this yet"
         val amount = s.amountSat
         if (amount == null || amount <= 0) return if (s.onchain && s.sendAll) "Working out the fee…" else "Enter an amount"
         if (s.onchain) {
             if (s.satPerVbyte == null) return "Waiting for fee rates"
             if (s.estimating) return "Working out the fee…"
-            if (s.estimateError != null) return s.estimateError
             val total = s.estimate?.totalSat ?: return "Working out the fee…"
             if (w != null && total > w.onchain.confirmedSat) return "More than your on-chain balance"
         } else if (w != null && amount > w.lightning.outboundSat) {
             return "More than your Lightning balance"
         }
-        if (t.expired) return "This request has expired"
         return null
     }
 
     fun send() {
         val s = _ui.value
+        // One send per tap: a second tap while it runs does nothing.
+        if (s.step != SendStep.Review) return
         val t = s.active ?: return
         if (blocker(s) != null) return
         val amount = s.amountSat ?: return
+        val pending = if (t.kind == "onchain") {
+            PendingSend(
+                onchain = OnchainSendRequest(
+                    address = t.address ?: t.request,
+                    amountSat = if (s.sendAll) null else amount,
+                    sendAll = s.sendAll,
+                    satPerVbyte = s.satPerVbyte ?: return,
+                    requestId = requestId,
+                ),
+                amountSat = amount,
+                feeSat = s.estimate?.feeSat ?: 0,
+                startedAtMs = System.currentTimeMillis(),
+            )
+        } else {
+            PendingSend(
+                pay = PayRequest(
+                    request = t.request,
+                    amountSat = if (t.amountEditable) amount else null,
+                    payerNote = s.payerNote.takeIf { it.isNotBlank() && t.kind == "offer" },
+                    requestId = requestId,
+                ),
+                amountSat = amount,
+                startedAtMs = System.currentTimeMillis(),
+            )
+        }
+        execute(pending)
+    }
+
+    /**
+     * Sends [pending], or asks again about it: the same request with the same
+     * id, which the node answers with the first outcome instead of sending
+     * twice. Kept on the phone until the outcome is known.
+     */
+    private fun execute(pending: PendingSend) {
+        lastSent = pending
+        settings.pendingSend = pending
         _ui.update { it.copy(step = SendStep.Sending, error = null, uncertain = false) }
         viewModelScope.launch {
             try {
-                val result = if (t.kind == "onchain") {
-                    val res = api.sendOnchain(
-                        OnchainSendRequest(
-                            address = t.address ?: t.request,
-                            amountSat = if (s.sendAll) null else amount,
-                            sendAll = s.sendAll,
-                            satPerVbyte = s.satPerVbyte!!,
-                            label = t.label?.takeIf { it.isNotBlank() },
-                            requestId = requestId,
-                        )
-                    )
-                    SendResult(false, amount, s.estimate?.feeSat ?: 0, res.txid)
+                val result = if (pending.onchain != null) {
+                    val res = api.sendOnchain(pending.onchain)
+                    SendResult(false, pending.amountSat, pending.feeSat, res.txid)
                 } else {
-                    val res = api.pay(
-                        PayRequest(
-                            request = t.request,
-                            amountSat = if (t.amountEditable) amount else null,
-                            payerNote = s.payerNote.takeIf { it.isNotBlank() && t.kind == "offer" },
-                            requestId = requestId,
-                        )
-                    )
-                    if (res.status != "succeeded") throw java.io.IOException("payment status ${res.status}")
-                    SendResult(true, res.amountSat.takeIf { it > 0 } ?: amount, res.feeSat, res.preimage)
+                    val res = api.pay(pending.pay!!)
+                    when (res.status) {
+                        "succeeded" -> SendResult(true, res.amountSat.takeIf { it > 0 } ?: pending.amountSat, res.feeSat, res.preimage)
+                        "failed" -> throw ApiException(400, "The payment failed.")
+                        else -> throw java.io.IOException("payment ${res.status}")
+                    }
                 }
+                settings.pendingSend = null
                 _ui.update { it.copy(step = SendStep.Done, result = result) }
                 wallet.refresh()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: ApiException) {
                 if (definite(e.status)) {
-                    // The node said no: a new attempt is a new payment.
+                    // The node said no: nothing moved, and a new attempt is a
+                    // new payment.
+                    settings.pendingSend = null
                     requestId = NodeApi.newRequestId()
                     _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = false) }
                 } else {
-                    // A server error or a cut-off call: the money may have
+                    // A cut-off call or a server error: the money may have
                     // moved. Asking again with the same id is safe.
                     _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = true) }
                 }
             } catch (e: com.paulscode.lightningfork.net.KeyUnavailableException) {
                 // Nothing was sent.
+                settings.pendingSend = null
                 _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = false) }
             } catch (e: Exception) {
-                // The answer was lost: retrying with the same id returns the
-                // first outcome instead of paying twice.
                 _ui.update {
                     it.copy(
                         step = SendStep.Failed,
@@ -299,10 +369,30 @@ class SendViewModel(
         }
     }
 
-    /** A 4xx the node chose to give, as opposed to an error on the way. */
-    private fun definite(status: Int) = status in 400..499 && status != 408 && status != 425 && status != 429
+    /**
+     * The node's own refusal, as opposed to an error on the way. 503 is the
+     * node saying LND is not answering, before anything was sent; 502 and 504
+     * are a cut-off.
+     */
+    private fun definite(status: Int) =
+        (status in 400..499 && status != 408 && status != 425 && status != 429) || status == 503
 
-    fun retry() = send()
+    /** After a failure: an uncertain send is asked about again, unchanged; a refused one is tried anew. */
+    fun retry() {
+        val s = _ui.value
+        val sent = lastSent
+        if (s.uncertain && sent != null) {
+            execute(sent)
+        } else {
+            _ui.update { it.copy(step = SendStep.Review, error = null) }
+            send()
+        }
+    }
+
+    /** Forget an uncertain send (the user checked their activity). */
+    fun dismissUncertain() {
+        settings.pendingSend = null
+    }
 
     fun backToReview() = _ui.update { it.copy(step = SendStep.Review, error = null) }
 }

@@ -39,7 +39,9 @@ object Format {
 
     /** Parse what the user typed in [unit] into sats; null when it isn't an amount. */
     fun parseAmount(text: String, unit: AmountUnit): Long? {
-        val t = text.trim().replace(",", "").replace("_", "").replace(" ", "")
+        // Commas are grouping only in sats; in BTC a comma is not an amount
+        // (the field types it as the decimal point).
+        val t = text.trim().replace("_", "").replace(" ", "").let { if (unit == AmountUnit.Sats) it.replace(",", "") else it }
         if (t.isEmpty()) return null
         return when (unit) {
             AmountUnit.Sats -> t.toLongOrNull()?.takeIf { it >= 0 }
@@ -68,7 +70,7 @@ object Format {
         val h = s / 3600
         val m = (s % 3600) / 60
         val sec = s % 60
-        return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
+        return if (h > 0) "%d:%02d:%02d".format(Locale.US, h, m, sec) else "%d:%02d".format(Locale.US, m, sec)
     }
 
     /** The start and end of a long string, for a glance: "bc1qw5…7kv8f3t4". */

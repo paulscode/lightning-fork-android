@@ -21,6 +21,8 @@ data class PairUi(
     val recoverable: Boolean = true,
     val done: Boolean = false,
     val alias: String = "",
+    /** The code came from a link, not from the user's own scan or paste. */
+    val fromLink: Boolean = false,
 )
 
 class PairViewModel(
@@ -41,6 +43,17 @@ class PairViewModel(
         accept(payload)
     }
 
+    /**
+     * A code from a lightningfork://pair link. Any page or app can open one,
+     * so it never replaces a code the user is already looking at, and the
+     * confirm screen says where it came from.
+     */
+    fun onLinked(text: String) {
+        if (_ui.value.payload != null || _ui.value.phase != null) return
+        onPasted(text)
+        if (_ui.value.payload != null) _ui.update { it.copy(fromLink = true) }
+    }
+
     /** Pasted text; says so when it isn't a pairing code. */
     fun onPasted(text: String) {
         val payload = coordinator.parsePayload(text)
@@ -56,12 +69,12 @@ class PairViewModel(
             _ui.update { it.copy(scanning = false, error = "That code has expired. Make a new one in the dashboard.") }
             return
         }
-        _ui.update { it.copy(scanning = false, payload = payload, error = null) }
+        _ui.update { it.copy(scanning = false, payload = payload, error = null, fromLink = false) }
     }
 
     fun onLabel(v: String) = _ui.update { it.copy(label = v.take(64)) }
 
-    fun reset() = _ui.update { it.copy(payload = null, phase = null, error = null, recoverable = true) }
+    fun reset() = _ui.update { it.copy(payload = null, phase = null, error = null, recoverable = true, fromLink = false) }
 
     fun pair() {
         val payload = _ui.value.payload ?: return

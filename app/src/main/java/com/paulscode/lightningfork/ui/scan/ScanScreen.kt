@@ -83,6 +83,11 @@ fun ScanScreen(
     LaunchedEffect(Unit) {
         if (!granted) launcher.launch(Manifest.permission.CAMERA)
     }
+    // Back from the settings screen: look again.
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        granted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        onPauseOrDispose { }
+    }
     var camera by remember { mutableStateOf<Camera?>(null) }
     var torch by remember { mutableStateOf(false) }
 
@@ -107,7 +112,27 @@ fun ScanScreen(
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(24.dp))
-                PrimaryButton("Allow camera", onClick = { launcher.launch(Manifest.permission.CAMERA) }, modifier = Modifier.fillMaxWidth())
+                val activity = context as? android.app.Activity
+                // After a second refusal Android stops asking: send the user
+                // to the app's settings instead of a button that does nothing.
+                val blocked = asked && activity != null &&
+                    !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.CAMERA)
+                PrimaryButton(
+                    if (blocked) "Open settings" else "Allow camera",
+                    onClick = {
+                        if (blocked) {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    android.net.Uri.fromParts("package", context.packageName, null),
+                                )
+                            )
+                        } else {
+                            launcher.launch(Manifest.permission.CAMERA)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
         Row(

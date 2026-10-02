@@ -103,6 +103,8 @@ fun HomeScreen(
     onActivity: () -> Unit,
     onSettings: () -> Unit,
     torStarting: Int? = null,
+    pendingSend: com.paulscode.lightningfork.net.PendingSend? = null,
+    onCheckPending: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var pulling by remember { mutableStateOf(false) }
@@ -148,10 +150,14 @@ fun HomeScreen(
                         kind = NoticeKind.Warning,
                         modifier = Modifier.padding(bottom = 14.dp),
                     )
+                    if (pendingSend != null) {
+                        PendingSendCard(pendingSend, unit, onCheckPending)
+                        Spacer(Modifier.height(14.dp))
+                    }
                     val w = state.wallet
                     BalanceCard(
-                        title = "Bitcoin",
-                        caption = "On-chain",
+                        title = "On-chain",
+                        caption = "Confirmed",
                         mark = { BitcoinMark() },
                         sats = w?.onchain?.confirmedSat,
                         unit = unit,
@@ -159,7 +165,7 @@ fun HomeScreen(
                         fiat = w?.onchain?.confirmedSat?.let { Format.fiat(it, state.usdPrice) },
                         lines = buildList {
                             val incoming = w?.onchain?.unconfirmedSat ?: 0
-                            if (incoming > 0) add("+ ${Format.amountWithUnit(incoming, unit)} confirming" to Warning)
+                            if (incoming > 0) add("${Format.amountWithUnit(incoming, unit)} unconfirmed" to Warning)
                         },
                     )
                     Spacer(Modifier.height(14.dp))
@@ -173,7 +179,7 @@ fun HomeScreen(
                         fiat = w?.lightning?.outboundSat?.let { Format.fiat(it, state.usdPrice) },
                         lines = buildList {
                             val opening = w?.lightning?.pendingOutboundSat ?: 0
-                            if (opening > 0) add("+ ${Format.amountWithUnit(opening, unit)} in channels opening" to Warning)
+                            if (opening > 0) add("${Format.amountWithUnit(opening, unit)} in channels opening" to Warning)
                             w?.lightning?.inboundSat?.let {
                                 add("Can receive ${Format.amountWithUnit(it, unit)}" to TextMuted)
                             }
@@ -338,6 +344,7 @@ private fun BalanceCard(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 role = Role.Button,
+                onClickLabel = "Switch between sats and BTC",
                 onClick = onToggleUnit,
             )
             .padding(20.dp),
@@ -393,5 +400,32 @@ fun LightningMark(size: androidx.compose.ui.unit.Dp = 36.dp) {
             colorFilter = ColorFilter.tint(Color.White),
             modifier = Modifier.size(size * 0.55f),
         )
+    }
+}
+
+/** A send whose outcome the app never heard, with the way to ask. */
+@Composable
+private fun PendingSendCard(p: com.paulscode.lightningfork.net.PendingSend, unit: AmountUnit, onCheck: () -> Unit) {
+    val shape = RoundedCornerShape(18.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Warning.copy(alpha = 0.12f))
+            .border(BorderStroke(1.dp, Warning.copy(alpha = 0.35f)), shape)
+            .clickable(onClickLabel = "Check this payment", onClick = onCheck)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("A payment didn't finish", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+            Text(
+                "${Format.amountWithUnit(p.amountSat, unit)} ${if (p.lightning) "over Lightning" else "on-chain"}. Check whether it went through.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Text("Check", style = MaterialTheme.typography.labelLarge, color = Accent)
     }
 }

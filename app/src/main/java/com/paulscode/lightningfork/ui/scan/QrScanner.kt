@@ -1,6 +1,7 @@
 package com.paulscode.lightningfork.ui.scan
 
 import android.util.Log
+import com.paulscode.lightningfork.BuildConfig
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -38,8 +39,13 @@ fun QrScanner(
             BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
         )
     }
+    val bound = remember { mutableListOf<Pair<ProcessCameraProvider, Array<androidx.camera.core.UseCase>>>() }
     DisposableEffect(Unit) {
         onDispose {
+            // The camera is bound to the activity, which outlives this screen:
+            // let it go now, or it stays on behind Review and Sending.
+            bound.forEach { (provider, cases) -> runCatching { provider.unbind(*cases) } }
+            bound.clear()
             scanner.close()
             executor.shutdown()
         }
@@ -57,6 +63,10 @@ fun QrScanner(
                     .build()
                     .also { ia ->
                         ia.setAnalyzer(executor) { proxy ->
+                            if (executor.isShutdown) {
+                                proxy.close()
+                                return@setAnalyzer
+                            }
                             val image = proxy.image
                             if (image == null) {
                                 proxy.close()
@@ -69,7 +79,7 @@ fun QrScanner(
                                         ContextCompat.getMainExecutor(ctx).execute { onDetected(text) }
                                     }
                                 }
-                                .addOnFailureListener { Log.w("QrScanner", "scan failed", it) }
+                                .addOnFailureListener { if (BuildConfig.DEBUG) Log.w("QrScanner", "scan failed", it) }
                                 .addOnCompleteListener { proxy.close() }
                         }
                     }
@@ -78,8 +88,9 @@ fun QrScanner(
                     val camera = provider.bindToLifecycle(
                         lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis,
                     )
+                    bound.add(provider to arrayOf(preview, analysis))
                     onCamera(camera)
-                }.onFailure { Log.e("QrScanner", "bind failed", it) }
+                }.onFailure { if (BuildConfig.DEBUG) Log.e("QrScanner", "bind failed", it) }
             }, ContextCompat.getMainExecutor(ctx))
             previewView
         },

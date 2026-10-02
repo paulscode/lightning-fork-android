@@ -117,9 +117,14 @@ object CaPinning {
      * (covers the `.local` name); fall back to trusting the pinned chain when
      * connecting by IP, which the leaf's SAN may not list.
      */
-    fun hostnameVerifier(tm: X509TrustManager): HostnameVerifier =
+    fun hostnameVerifier(tm: X509TrustManager, allowedHosts: () -> Set<String>? = { null }): HostnameVerifier =
         HostnameVerifier { host, session ->
             if (DEFAULT.verify(host, session)) return@HostnameVerifier true
+            // Beyond the certificate's own names, only the node's addresses
+            // from pairing: a root that signs other services' certificates
+            // (StartOS's) must not vouch for them here.
+            val allowed = allowedHosts()
+            if (allowed != null && host.lowercase() !in allowed) return@HostnameVerifier false
             try {
                 val chain = session.peerCertificates.filterIsInstance<X509Certificate>()
                 if (chain.isEmpty()) return@HostnameVerifier false

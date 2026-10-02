@@ -131,8 +131,8 @@ private fun Logo() {
 
 @Composable
 private fun Welcome(ui: PairUi, onScan: () -> Unit, onPaste: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(24.dp)) {
-        Spacer(Modifier.weight(1f))
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp)) {
+        Spacer(Modifier.height(48.dp))
         Logo()
         Spacer(Modifier.height(24.dp))
         Text("Lightning Fork", style = MaterialTheme.typography.displaySmall, color = TextPrimary)
@@ -148,7 +148,7 @@ private fun Welcome(ui: PairUi, onScan: () -> Unit, onPaste: () -> Unit) {
         Step(3, "Scan the code it shows.")
         Spacer(Modifier.height(20.dp))
         Notice(ui.error)
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(32.dp))
         PrimaryButton("Scan pairing code", onClick = onScan, icon = Icons.Rounded.QrCodeScanner, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
         SecondaryButton("Paste code", onClick = onPaste, icon = Icons.Rounded.ContentPaste, modifier = Modifier.fillMaxWidth())
@@ -184,6 +184,13 @@ private fun Confirm(ui: PairUi, vm: PairViewModel) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextMuted,
             )
+            if (ui.fromLink) {
+                Spacer(Modifier.height(14.dp))
+                Notice(
+                    "This code came from a link. Pair only if you opened it from your own dashboard just now, and the addresses below are your node's.",
+                    kind = com.paulscode.lightningfork.ui.components.NoticeKind.Warning,
+                )
+            }
             Spacer(Modifier.height(20.dp))
             AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
                 p.lan?.let { InfoRow("Local address", it.removePrefix("https://")) }

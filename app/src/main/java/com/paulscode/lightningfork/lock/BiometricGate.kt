@@ -12,13 +12,13 @@ import androidx.fragment.app.FragmentActivity
 /** Biometric / device-credential unlock, degrading gracefully across API levels. */
 object BiometricGate {
 
-    // On 30+ we can combine a biometric with the device PIN/pattern as fallback;
-    // below that the combination isn't supported, so require a biometric.
+    // A biometric or the screen lock. Before Android 11 a strong biometric
+    // cannot be combined with the screen lock, a weak one can.
     private val authenticators: Int
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             BIOMETRIC_STRONG or DEVICE_CREDENTIAL
         } else {
-            BIOMETRIC_WEAK
+            BIOMETRIC_WEAK or DEVICE_CREDENTIAL
         }
 
     /** Whether any usable credential exists to gate the app with. */
@@ -45,11 +45,6 @@ object BiometricGate {
         val builder = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Unlock Lightning Fork")
             .setAllowedAuthenticators(authenticators)
-        // A negative button is required when device credential isn't among the
-        // allowed authenticators (older APIs).
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            builder.setNegativeButtonText("Cancel")
-        }
         prompt.authenticate(builder.build())
     }
 }

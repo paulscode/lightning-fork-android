@@ -2,6 +2,4 @@
 <resources>
     <!-- The dashboard's dark theme; see ui/theme/Color.kt. -->
     <color name="page">#FF050B18</color>
-    <color name="surface">#FF0C1630</color>
-    <color name="accent">#FF4E93FF</color>
 </resources>

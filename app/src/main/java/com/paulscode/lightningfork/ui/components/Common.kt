@@ -225,8 +225,17 @@ fun AmountField(
     Column(modifier) {
         AppTextField(
             value = text,
-            onValueChange = { v ->
-                val ok = if (unit == AmountUnit.Sats) v.all { it.isDigit() || it == ',' } else v.all { it.isDigit() || it == '.' }
+            onValueChange = { raw ->
+                // Sats: digits, with commas as grouping. BTC: digits and one
+                // decimal point, which a comma (the decimal key on many
+                // keyboards) also types, and no more than 8 places.
+                val v = if (unit == AmountUnit.Btc) raw.replace(',', '.') else raw
+                val ok = if (unit == AmountUnit.Sats) {
+                    v.all { it.isDigit() || it == ',' }
+                } else {
+                    v.all { it.isDigit() || it == '.' } && v.count { it == '.' } <= 1 &&
+                        v.substringAfter('.', "").length <= 8
+                }
                 if (ok && v.length <= 20) onTextChange(v)
             },
             label = label,
@@ -241,8 +250,8 @@ fun AmountField(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
                         .background(SurfaceRaised)
-                        .clickable(onClick = onToggleUnit)
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .clickable(onClickLabel = "Switch between sats and BTC", onClick = onToggleUnit)
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
                 )
             },
         )

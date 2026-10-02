@@ -33,7 +33,8 @@ machine only ever produces *unsigned* artifacts.
 
 ## One-time setup
 
-1. **Upload keystore** — already created on the air-gapped machine and backed up:
+1. **Upload keystore** — create it once on the air-gapped machine and back it up
+   (this app has its own; it is not Key Value Copy's):
    ```
    keytool -genkeypair -v -keystore lf-upload.jks \
      -keyalg RSA -keysize 2048 -validity 10000 -alias lf-upload

@@ -12,15 +12,16 @@ ver="$(grep -oE 'versionName = "[^"]+"' "$root/app/build.gradle.kts" | head -1 |
 [ -n "$ver" ] || { echo "could not read versionName" >&2; exit 1; }
 echo "Building Lightning Fork v$ver (unsigned)…"
 
-# All ABIs so the universal APK and the AAB cover every device.
-ABIS="arm64-v8a armeabi-v7a x86_64 x86" "$root/rust/build-android.sh"
-
 # Fails fast if keystore.properties is present (that path signs during build and
 # is not the air-gapped flow this script is for).
 if [ -f "$root/keystore.properties" ]; then
   echo "keystore.properties present — remove it for the unsigned/air-gapped flow." >&2
   exit 1
 fi
+
+# All ABIs so the universal APK and the AAB cover every device.
+ABIS="arm64-v8a armeabi-v7a x86_64 x86" "$root/rust/build-android.sh"
+
 
 ( cd "$root" && ./gradlew --console=plain clean bundleRelease assembleRelease )
 

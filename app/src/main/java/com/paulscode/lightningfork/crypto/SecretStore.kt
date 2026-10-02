@@ -25,14 +25,45 @@ class SecretStore(context: Context) {
 
     @Volatile private var cached: String? = null
 
+    /** What reading the key gave. */
+    sealed interface Read {
+        data class Key(val value: String) : Read
+        /** The phone is locked, or the Keystore is briefly unavailable: try later. */
+        data object Unavailable : Read
+        /** The Keystore key is gone or no longer opens the ciphertext: pair again. */
+        data object Lost : Read
+        data object None : Read
+    }
+
     fun putApiKey(value: String) {
         wrapAndStore(KEY_API, value)
         cached = value
     }
 
-    fun getApiKey(): String? = cached ?: runCatching { loadAndUnwrap(KEY_API) }.getOrNull()?.also { cached = it }
+    fun readApiKey(): Read {
+        cached?.let { return Read.Key(it) }
+        if (!hasApiKey()) return Read.None
+        return try {
+            val key = loadAndUnwrap(KEY_API) ?: return Read.Lost
+            cached = key
+            Read.Key(key)
+        } catch (e: android.security.keystore.KeyPermanentlyInvalidatedException) {
+            Read.Lost
+        } catch (e: javax.crypto.AEADBadTagException) {
+            Read.Lost
+        } catch (e: Exception) {
+            Read.Unavailable
+        }
+    }
+
+    fun getApiKey(): String? = (readApiKey() as? Read.Key)?.value
 
     fun hasApiKey(): Boolean = prefs.contains("$KEY_API.ct")
+
+    /** Forget the decrypted key in memory; it is read again when next needed. */
+    fun forgetCached() {
+        cached = null
+    }
 
     /** Wipe on unpair; the Keystore key goes too, so nothing is recoverable. */
     fun clear() {
@@ -46,15 +77,18 @@ class SecretStore(context: Context) {
             init(Cipher.ENCRYPT_MODE, wrappingKey(alias))
         }
         val ct = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
+        // commit, not apply: a process death right after pairing must not
+        // keep the pairing and lose the key.
         prefs.edit()
             .putString("$alias.iv", b64(cipher.iv))
             .putString("$alias.ct", b64(ct))
-            .apply()
+            .commit()
     }
 
     private fun loadAndUnwrap(alias: String): String? {
         val iv = prefs.getString("$alias.iv", null) ?: return null
         val ct = prefs.getString("$alias.ct", null) ?: return null
+        if (!ks.containsAlias(alias)) return null
         val key = (ks.getEntry(alias, null) as? KeyStore.SecretKeyEntry)?.secretKey ?: return null
         val cipher = Cipher.getInstance(TRANSFORMATION).apply {
             init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, unb64(iv)))
@@ -71,7 +105,11 @@ class SecretStore(context: Context) {
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setKeySize(256)
-            .setUnlockedDeviceRequired(true)
+            .apply {
+                // Usable only while the phone is unlocked, where Android can
+                // say so (API 28); minSdk is 26.
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) setUnlockedDeviceRequired(true)
+            }
             .build()
         gen.init(spec)
         return gen.generateKey()

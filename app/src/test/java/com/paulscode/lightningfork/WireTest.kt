@@ -77,6 +77,22 @@ class WireTest {
         assertTrue(t.message!!.startsWith("Lightning addresses"))
     }
 
+    @Test fun a_pending_send_round_trips() {
+        val p = com.paulscode.lightningfork.net.PendingSend(
+            pay = com.paulscode.lightningfork.net.PayRequest(request = "lnbc1", amountSat = null, requestId = "req-12345678"),
+            amountSat = 2500,
+            startedAtMs = 5,
+        )
+        val back = ApiJson.decodeFromString(
+            com.paulscode.lightningfork.net.PendingSend.serializer(),
+            ApiJson.encodeToString(com.paulscode.lightningfork.net.PendingSend.serializer(), p),
+        )
+        assertEquals(p, back)
+        assertTrue(back.lightning)
+        // The request goes out exactly as it was first sent: same id.
+        assertEquals("req-12345678", back.pay!!.requestId)
+    }
+
     @Test fun activity() {
         val a = ApiJson.decodeFromString(
             ActivityResponse.serializer(),

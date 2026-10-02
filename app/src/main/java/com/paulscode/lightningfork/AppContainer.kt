@@ -23,7 +23,7 @@ class AppContainer(context: Context) {
     val secrets = SecretStore(appContext)
     val settings = SettingsStore(appContext)
     val tor: TorController = ArtiTorController(appContext)
-    val transport = Transport(settings.endpoints, tor) { secrets.getApiKey() }
+    val transport = Transport(settings.endpoints, tor) { secrets.readApiKey() }
     val api = NodeApi(transport)
     val pairing = PairingCoordinator(transport, api, tor, secrets, settings)
 

@@ -3,7 +3,6 @@ package com.paulscode.lightningfork.util
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.os.Build
 import android.os.PersistableBundle
 
 /**
@@ -29,16 +28,4 @@ object Clipboard {
         manager(context).setPrimaryClip(ClipData.newPlainText(label, text))
     }
 
-    /** Clear the clipboard only if it still holds [text] (don't nuke a later copy). */
-    fun clearIfMatches(context: Context, text: String) {
-        val cm = manager(context)
-        val current = cm.primaryClip?.getItemAt(0)?.text?.toString()
-        if (current == text) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                cm.clearPrimaryClip()
-            } else {
-                cm.setPrimaryClip(ClipData.newPlainText("", ""))
-            }
-        }
-    }
 }

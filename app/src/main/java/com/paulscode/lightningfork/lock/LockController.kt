@@ -5,11 +5,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * App-lock state (plan §10). The app starts locked; unlocking (via biometric or
- * device credential) reveals the vault and lets the e2e key be used. Re-locks
- * when the app has been in the background longer than [timeoutMs]. The device's
- * own keyguard already gates the keystore (setUnlockedDeviceRequired); this is an
- * additional per-app gate.
+ * The app lock. The app starts locked; a biometric or the screen lock opens
+ * it, and it locks again after [timeoutMs] in the background. It sits in
+ * front of the balances and payments; the device key itself is protected by
+ * the Keystore, usable only while the phone is unlocked.
  */
 class LockController(private val timeoutMs: Long = 60_000) {
     private val _locked = MutableStateFlow(true)

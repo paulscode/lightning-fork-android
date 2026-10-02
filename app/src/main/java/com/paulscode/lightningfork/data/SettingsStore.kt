@@ -20,7 +20,8 @@ class SettingsStore(context: Context) {
 
     var serverId: String?
         get() = prefs.getString("server_id", null)
-        set(v) { prefs.edit().putString("server_id", v).apply() }
+        // commit: this is what marks the phone paired.
+        set(v) { prefs.edit().putString("server_id", v).commit() }
 
     var deviceId: String?
         get() = prefs.getString("device_id", null)
@@ -50,10 +51,30 @@ class SettingsStore(context: Context) {
         get() = prefs.getLong("last_wallet_at", 0)
         set(v) { prefs.edit().putLong("last_wallet_at", v).apply() }
 
-    var unit: AmountUnit
-        get() = runCatching { AmountUnit.valueOf(prefs.getString("unit", AmountUnit.Sats.name)!!) }
+    /** The unit amounts are shown in, everywhere at once. */
+    val unitFlow = kotlinx.coroutines.flow.MutableStateFlow(
+        runCatching { AmountUnit.valueOf(prefs.getString("unit", AmountUnit.Sats.name)!!) }
             .getOrDefault(AmountUnit.Sats)
-        set(v) { prefs.edit().putString("unit", v.name).apply() }
+    )
+
+    /** A send whose outcome the phone has not yet heard; see [PendingSend]. */
+    var pendingSend: com.paulscode.lightningfork.net.PendingSend?
+        get() = prefs.getString("pending_send", null)?.let {
+            runCatching { ApiJson.decodeFromString(com.paulscode.lightningfork.net.PendingSend.serializer(), it) }.getOrNull()
+        }
+        set(v) {
+            prefs.edit().putString(
+                "pending_send",
+                v?.let { ApiJson.encodeToString(com.paulscode.lightningfork.net.PendingSend.serializer(), it) },
+            ).commit()
+        }
+
+    var unit: AmountUnit
+        get() = unitFlow.value
+        set(v) {
+            unitFlow.value = v
+            prefs.edit().putString("unit", v.name).apply()
+        }
 
     var showFiat: Boolean
         get() = prefs.getBoolean("show_fiat", true)

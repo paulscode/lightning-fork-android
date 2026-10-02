@@ -45,7 +45,9 @@ address in StartOS for use away from home); on Umbrel, at a port of its own,
 - The device key is encrypted with a hardware-backed Keystore key usable only
   while the phone is unlocked, and is never backed up.
 - An optional app lock asks for the fingerprint, face or screen lock.
-- Nothing is sent anywhere but your node.
+- The app talks only to your node, directly on the LAN or through the Tor
+  network to its onion address. The US dollar estimate comes from your node
+  too, which fetches it from its price source; it can be turned off.
 
 ## Building
 

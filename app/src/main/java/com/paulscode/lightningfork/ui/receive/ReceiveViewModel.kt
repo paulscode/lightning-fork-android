@@ -15,6 +15,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -66,7 +67,6 @@ class ReceiveViewModel(
     val ui: StateFlow<ReceiveUi> = _ui
 
     private var watcher: Job? = null
-    private var baselineUnconfirmed: Long? = null
 
     init {
         if (_ui.value.tab == ReceiveTab.Onchain) loadAddress(fresh = false)
@@ -125,8 +125,10 @@ class ReceiveViewModel(
             var failures = 0
             while (isActive) {
                 delay(if (failures > 0) 6000 else 2500)
+                // Not while the app is in the background.
+                wallet.foreground.first { it }
                 // Past its expiry an invoice can't be paid; stop asking.
-                if (System.currentTimeMillis() / 1000 > inv.expiresAt + 30) {
+                if (inv.expiresAt > 0 && System.currentTimeMillis() / 1000 > inv.expiresAt + 30) {
                     _ui.update { it.copy(invoiceState = "expired") }
                     break
                 }
@@ -165,16 +167,25 @@ class ReceiveViewModel(
 
     /**
      * While receiving on-chain, notice a payment arriving: the unconfirmed
-     * balance rising above what it was when the screen opened.
+     * balance rising. The baseline comes only from a refresh made after the
+     * screen opened (not the numbers cached from an earlier run), and follows
+     * the balance down when something confirms, so an old amount or this
+     * wallet's own change is not taken for a payment.
      */
     private fun watchIncoming() {
+        val openedAt = System.currentTimeMillis()
         viewModelScope.launch {
+            var base: Long? = null
             wallet.state.collect { st ->
+                if (st.updatedAtMs < openedAt) return@collect
                 val unconfirmed = st.wallet?.onchain?.unconfirmedSat ?: return@collect
-                val base = baselineUnconfirmed ?: unconfirmed.also { baselineUnconfirmed = it }
-                val incoming = (unconfirmed - base).coerceAtLeast(0)
+                val b = minOf(base ?: unconfirmed, unconfirmed)
+                base = b
+                val incoming = unconfirmed - b
                 if (incoming != _ui.value.incomingSat) _ui.update { it.copy(incomingSat = incoming) }
             }
         }
+        // A fresh refresh now, rather than waiting for the next poll.
+        viewModelScope.launch { wallet.refresh() }
     }
 }

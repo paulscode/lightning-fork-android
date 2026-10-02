@@ -36,8 +36,22 @@ class ApiException(val status: Int, override val message: String) : Exception(me
 /** No way to the node worked. */
 class UnreachableException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
-/** The device key could not be read from the Keystore; nothing was sent. */
-class KeyUnavailableException : IOException("This phone's key could not be read. Unlock the phone and try again.")
+/**
+ * The device key could not be read; nothing was sent. [lost]: the Keystore
+ * key is gone for good (the phone must pair again), not just locked.
+ */
+class KeyUnavailableException(val lost: Boolean) : IOException(
+    if (lost) "This phone's key can no longer be read. Pair the phone again."
+    else "This phone's key could not be read. Unlock the phone and try again.",
+)
+
+/**
+ * The node was reached but its certificate no longer chains to the root the
+ * phone pinned at pairing: the node's certificate authority changed, or
+ * something is in the way. Nothing was sent.
+ */
+class CertificateChangedException(cause: Throwable?) :
+    IOException("Your node's certificate does not match the one this phone was paired with.", cause)
 
 val ApiJson = Json {
     ignoreUnknownKeys = true
@@ -61,7 +75,7 @@ private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
 class Transport(
     @Volatile var endpoints: ServerEndpoints,
     private val tor: TorController,
-    private val apiKeyProvider: () -> String?,
+    private val apiKeyProvider: () -> com.paulscode.lightningfork.crypto.SecretStore.Read,
 ) {
     @Volatile private var lastGoodUrl: String? = null
 
@@ -93,7 +107,7 @@ class Transport(
             val tm = CaPinning.trustManagerFor(pem, endpoints.caSha256)
             val pinned = base.newBuilder()
                 .sslSocketFactory(CaPinning.sslContextFor(tm).socketFactory, tm)
-                .hostnameVerifier(CaPinning.hostnameVerifier(tm))
+                .hostnameVerifier(CaPinning.hostnameVerifier(tm) { knownHosts() })
                 .build()
             pinnedLan = pinned.newBuilder().connectTimeout(4, TimeUnit.SECONDS).build()
             pinnedTor = pinned.newBuilder().connectTimeout(45, TimeUnit.SECONDS).build()
@@ -120,18 +134,47 @@ class Transport(
                 }
             }
         }
-        val lg = lastGoodUrl ?: return list
         // Stay on what worked, but while that is Tor, look for the LAN again
-        // now and then: back home, the phone should use it.
+        // now and then (back home, the phone should use it), by a quick probe.
         val now = android.os.SystemClock.elapsedRealtime()
-        if (_route.value == Route.Tor && now - lastLanProbeMs > LAN_RECHECK_MS) {
+        if (_route.value == Route.Tor && canPin && now - lastLanProbeMs > LAN_RECHECK_MS) {
             lastLanProbeMs = now
-            return list
+            lanAnswers()
         }
+        val lg = lastGoodUrl ?: return list
         return list.sortedByDescending { it.url == lg }
     }
 
     @Volatile private var lastLanProbeMs = 0L
+
+    /** The node's own host names, the only ones the pinned root vouches for here. */
+    private fun knownHosts(): Set<String> {
+        val e = endpoints
+        return listOfNotNull(e.lanUrl, e.lanIp, e.onionUrl)
+            .mapNotNull { runCatching { it.toHttpUrl().host.lowercase() }.getOrNull() }
+            .toSet()
+    }
+
+    /**
+     * Whether the LAN answers, by a quick unauthenticated request (any HTTP
+     * answer will do), so that looking for it never holds up a real call.
+     */
+    private fun lanAnswers(): Boolean {
+        val e = endpoints
+        val lan = pinnedClients()?.first ?: return false
+        val quick = lan.newBuilder().callTimeout(4, TimeUnit.SECONDS).build()
+        for (url in listOfNotNull(e.lanUrl, e.lanIp)) {
+            val ok = runCatching {
+                quick.newCall(Request.Builder().url((url.trimEnd('/') + "/api/v1/bootstrap").toHttpUrl()).get().build())
+                    .execute().use { true }
+            }.getOrDefault(false)
+            if (ok) {
+                lastGoodUrl = url
+                return true
+            }
+        }
+        return false
+    }
 
     private fun clientFor(kind: Kind, timeoutSeconds: Long): OkHttpClient {
         val c = when (kind) {
@@ -150,12 +193,6 @@ class Transport(
             .callTimeout(timeoutSeconds + extra + 20, TimeUnit.SECONDS)
             .build()
     }
-
-    /** Whether any way to the node is configured at all. */
-    val hasRoute: Boolean get() = attempts().isNotEmpty()
-
-    /** Whether the only ways configured are over Tor. */
-    val torOnly: Boolean get() = attempts().all { it.route == Route.Tor }
 
     /**
      * Capture the node's root over LAN, accepted only if it matches the QR
@@ -197,14 +234,27 @@ class Transport(
     ): String = withContext(Dispatchers.IO) {
         val list = attempts()
         if (list.isEmpty()) throw UnreachableException("No address for the node is known.")
-        val key = if (auth) apiKeyProvider() ?: throw KeyUnavailableException() else null
+        val key = if (!auth) null else when (val read = apiKeyProvider()) {
+            is com.paulscode.lightningfork.crypto.SecretStore.Read.Key -> read.value
+            com.paulscode.lightningfork.crypto.SecretStore.Read.Lost,
+            com.paulscode.lightningfork.crypto.SecretStore.Read.None -> throw KeyUnavailableException(lost = true)
+            com.paulscode.lightningfork.crypto.SecretStore.Read.Unavailable -> throw KeyUnavailableException(lost = false)
+        }
         var last: Exception? = null
+        var certFailure: Exception? = null
+        var torDown = false
         for (a in list) {
             try {
-                if (a.route == Route.Tor && tor.status.value != TorStatus.Ready) {
-                    tor.start()
+                if (a.route == Route.Tor) {
+                    // One failed start is enough for this call: the next onion
+                    // attempt would only wait out the same bootstrap again.
+                    if (torDown) continue
                     if (tor.status.value != TorStatus.Ready) {
-                        throw UnreachableException("Tor could not start.")
+                        tor.start()
+                        if (tor.status.value != TorStatus.Ready) {
+                            torDown = true
+                            throw UnreachableException("Tor could not start.")
+                        }
                     }
                 }
                 val url = (a.url.trimEnd('/') + path).toHttpUrl()
@@ -225,10 +275,22 @@ class Transport(
             } catch (e: Exception) {
                 logw("${a.kind} $path failed: ${e.javaClass.simpleName}: ${e.message}")
                 if (a.route == Route.Tor) tor.checkHealth()
+                if (isCertificateFailure(e)) certFailure = e
                 last = e
             }
         }
+        // Reached, but not the certificate pinned at pairing.
+        if (certFailure != null) throw CertificateChangedException(certFailure)
         throw UnreachableException("Can't reach your node right now.", last)
+    }
+
+    private fun isCertificateFailure(e: Throwable): Boolean {
+        var t: Throwable? = e
+        while (t != null) {
+            if (t is java.security.cert.CertificateException || t is javax.net.ssl.SSLPeerUnverifiedException) return true
+            t = t.cause
+        }
+        return false
     }
 
     private fun errorMessage(code: Int, body: String): String {

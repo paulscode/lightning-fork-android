@@ -56,7 +56,8 @@ import kotlinx.coroutines.launch
 /** Where the app can be. */
 sealed interface Dest {
     data object Home : Dest
-    data class Send(val prefill: String? = null) : Dest
+    /** [resume]: ask about the send whose outcome the app never heard. */
+    data class Send(val prefill: String? = null, val resume: Boolean = false) : Dest
     data object Receive : Dest
     data object Activity : Dest
     data object Settings : Dest
@@ -119,6 +120,8 @@ class MainActivity : FragmentActivity() {
             override fun onStop(owner: LifecycleOwner) {
                 container.lock.onStop()
                 container.wallet.setForeground(false)
+                // Out of sight, the key is not kept decrypted in memory.
+                container.secrets.forgetCached()
             }
         })
         if (savedInstanceState == null) handleLink(intent)
@@ -165,13 +168,24 @@ class MainActivity : FragmentActivity() {
             val code = data.getQueryParameter("c") ?: return
             val json = runCatching {
                 String(android.util.Base64.decode(code, android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP), Charsets.UTF_8)
-            }.getOrNull() ?: return
-            if (!container.isPaired) container.pendingPairing.value = json
+            }.getOrNull()
+            if (json == null) {
+                android.widget.Toast.makeText(this, "That pairing link is damaged. Scan the code instead.", android.widget.Toast.LENGTH_LONG).show()
+                return
+            }
+            if (container.isPaired) {
+                android.widget.Toast.makeText(this, "This phone is already paired. Unpair it in Settings first.", android.widget.Toast.LENGTH_LONG).show()
+            } else {
+                container.pendingPairing.value = json
+            }
             return
         }
         if ((scheme == "bitcoin" || scheme == "lightning") && container.isPaired) {
             // Never over a send that is open: its outcome must stay on screen.
-            if (nav.stack.any { it.dest is Dest.Send }) return
+            if (nav.stack.any { it.dest is Dest.Send }) {
+                android.widget.Toast.makeText(this, "Finish or close the payment that is open first.", android.widget.Toast.LENGTH_LONG).show()
+                return
+            }
             nav.home()
             nav.push(Dest.Send(prefill = data.toString()))
         }
@@ -182,21 +196,23 @@ class MainActivity : FragmentActivity() {
         val wallet by container.wallet.state.collectAsStateWithLifecycle()
         val torStatus by container.tor.status.collectAsStateWithLifecycle()
         val torProgress by container.tor.progress.collectAsStateWithLifecycle()
-        var unit by androidx.compose.runtime.remember { mutableStateOf(container.settings.unit) }
+        // One unit for the whole app: a change on Send or Receive shows on Home.
+        val unit by container.settings.unitFlow.collectAsStateWithLifecycle()
         fun setUnit(u: AmountUnit) {
-            unit = u
             container.settings.unit = u
         }
         // A phone the node no longer knows: say so, and let the user choose.
-        if (wallet.revoked) {
+        val repair = wallet.repair
+        if (repair != null) {
             com.paulscode.lightningfork.ui.pair.RemovedScreen(
+                reason = repair,
                 onPairAgain = {
                     nav.home()
                     container.unpair()
                     onUnpaired()
                 },
                 onTryAgain = {
-                    container.wallet.clearRevoked()
+                    container.wallet.clearRepair()
                     container.appScope.launch { container.wallet.refresh() }
                 },
             )
@@ -216,6 +232,11 @@ class MainActivity : FragmentActivity() {
             CompositionLocalProvider(LocalViewModelStoreOwner provides entry) {
                 when (val dest = entry.dest) {
                     Dest.Home -> HomeScreen(
+                        pendingSend = container.settings.pendingSend?.takeIf {
+                            // The node keeps a request's outcome for a day.
+                            System.currentTimeMillis() - it.startedAtMs < 24 * 3600_000L
+                        },
+                        onCheckPending = { nav.push(Dest.Send(resume = true)) },
                         state = wallet,
                         unit = unit,
                         onToggleUnit = { setUnit(if (unit == AmountUnit.Sats) AmountUnit.Btc else AmountUnit.Sats) },
@@ -228,7 +249,7 @@ class MainActivity : FragmentActivity() {
                     )
                     is Dest.Send -> {
                         val vm: SendViewModel = viewModel(factory = viewModelFactory {
-                            initializer { SendViewModel(container.api, container.wallet, container.settings, dest.prefill) }
+                            initializer { SendViewModel(container.api, container.wallet, container.settings, dest.prefill, dest.resume) }
                         })
                         SendScreen(vm, wallet, startScanning = false, onClose = { nav.pop() })
                     }
@@ -289,7 +310,7 @@ class MainActivity : FragmentActivity() {
         LaunchedEffect(linked) {
             linked?.let {
                 container.pendingPairing.value = null
-                vm.onPasted(it)
+                vm.onLinked(it)
             }
         }
         LaunchedEffect(ui.done) {

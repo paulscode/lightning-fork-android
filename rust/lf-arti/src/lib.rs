@@ -5,7 +5,7 @@
 //! internals of the `arti` binary crate.
 
 use std::net::{Ipv4Addr, TcpListener as StdTcpListener};
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 
 use anyhow::{anyhow, Result};
@@ -26,6 +26,8 @@ static RUNTIME: OnceCell<Runtime> = OnceCell::new();
 /// The SOCKS port of the running (or bootstrapping) client, if any. Cleared
 /// when a start fails, so a later start can try again in the same process.
 static RUNNING: StdMutex<Option<u16>> = StdMutex::new(None);
+/// Which start the progress belongs to; a stale watcher stops reporting.
+static GENERATION: AtomicU64 = AtomicU64::new(0);
 
 fn runtime() -> &'static Runtime {
     RUNTIME.get_or_init(|| {
@@ -73,10 +75,7 @@ pub extern "system" fn Java_com_paulscode_lightningfork_net_ArtiNative_nativeSta
             Ok(s) => s.into(),
             Err(_) => return -1,
         };
-        let mut running = match RUNNING.lock() {
-            Ok(g) => g,
-            Err(p) => p.into_inner(),
-        };
+        let mut running = RUNNING.lock().unwrap_or_else(|p| p.into_inner());
         if let Some(port) = *running {
             return port as jint;
         }
@@ -96,13 +95,22 @@ pub extern "system" fn Java_com_paulscode_lightningfork_net_ArtiNative_nativeSta
         }
         *running = Some(port);
         PROGRESS.store(0, Ordering::SeqCst);
+        let generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+        // The client runs in a task of its own, watched by this one: an error
+        // or a panic in it marks the start failed and frees the next start,
+        // instead of leaving a dead port behind.
         runtime().spawn(async move {
-            if let Err(e) = run(state, cache, listener).await {
-                tracing::error!("Arti failed: {e:?}");
+            let outcome = tokio::spawn(run(state, cache, listener, generation)).await;
+            let failure = match outcome {
+                Ok(Ok(())) => None,
+                Ok(Err(e)) => Some(format!("{e:?}")),
+                Err(e) => Some(format!("task ended: {e}")),
+            };
+            if let Some(why) = failure {
+                tracing::error!("Arti failed: {why}");
                 PROGRESS.store(-1, Ordering::SeqCst);
-                if let Ok(mut g) = RUNNING.lock() {
-                    *g = None;
-                }
+                let mut g = RUNNING.lock().unwrap_or_else(|p| p.into_inner());
+                *g = None;
             }
         });
         port as jint
@@ -118,7 +126,29 @@ pub extern "system" fn Java_com_paulscode_lightningfork_net_ArtiNative_nativeBoo
     PROGRESS.load(Ordering::SeqCst)
 }
 
-async fn run(state_dir: String, cache_dir: String, listener: StdTcpListener) -> Result<()> {
+/// Stops the progress watcher when the start it reports on ends, however
+/// it ends.
+struct AbortOnDrop(tokio::task::JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
+/// Raises the progress to `pct`, but never from a failure (-1) and never
+/// down: a late report must not hide a failure or undo 100.
+fn raise_progress(pct: i32) {
+    let mut cur = PROGRESS.load(Ordering::SeqCst);
+    while cur >= 0 && cur < pct {
+        match PROGRESS.compare_exchange(cur, pct, Ordering::SeqCst, Ordering::SeqCst) {
+            Ok(_) => return,
+            Err(actual) => cur = actual,
+        }
+    }
+}
+
+async fn run(state_dir: String, cache_dir: String, listener: StdTcpListener, generation: u64) -> Result<()> {
     let port = listener.local_addr()?.port();
     tracing::info!("nativeStart: port={port}");
     // rustls 0.23 requires a process-level CryptoProvider; Arti doesn't install
@@ -138,7 +168,7 @@ async fn run(state_dir: String, cache_dir: String, listener: StdTcpListener) -> 
 
     // Report progress while bootstrapping.
     let watch = client.clone();
-    tokio::spawn(async move {
+    let _watcher = AbortOnDrop(tokio::spawn(async move {
         let mut last = -1;
         loop {
             let frac = watch.bootstrap_status().as_frac();
@@ -147,17 +177,17 @@ async fn run(state_dir: String, cache_dir: String, listener: StdTcpListener) -> 
                 tracing::info!("bootstrap {pct}%");
                 last = pct;
             }
-            // Only ever up, and never to 100 from here: bootstrap() returning
-            // is what sets 100, and a late store here must not undo it.
-            if PROGRESS.load(Ordering::SeqCst) >= 0 {
-                PROGRESS.fetch_max(pct.min(99), Ordering::SeqCst);
+            // Never 100 from here: bootstrap() returning is what sets it.
+            if GENERATION.load(Ordering::SeqCst) != generation {
+                break;
             }
+            raise_progress(pct.min(99));
             if frac >= 1.0 {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
-    });
+    }));
 
     client.bootstrap().await?;
     PROGRESS.store(100, Ordering::SeqCst);
@@ -178,7 +208,7 @@ async fn serve_socks(client: Arc<TorClient<PreferredRuntime>>, listener: TcpList
     }
 }
 
-/// Minimal SOCKS5 CONNECT: no auth, IPv4/IPv6/domain, then splice to a Tor stream.
+/// Minimal SOCKS5 CONNECT to onion services: no auth, then splice to a Tor stream.
 async fn handle(client: Arc<TorClient<PreferredRuntime>>, mut sock: TcpStream) -> Result<()> {
     // Greeting: version + method list; reply "no authentication".
     let mut head = [0u8; 2];
@@ -224,6 +254,14 @@ async fn handle(client: Arc<TorClient<PreferredRuntime>>, mut sock: TcpStream) -
     let mut p = [0u8; 2];
     sock.read_exact(&mut p).await?;
     let port = u16::from_be_bytes(p);
+
+    // Onion services only: the app needs nothing else, and the proxy has no
+    // password, so another app on the phone must not get a way out through
+    // it. 0x02: connection not allowed by ruleset.
+    if !host.to_ascii_lowercase().ends_with(".onion") {
+        sock.write_all(&[0x05, 0x02, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await?;
+        return Ok(());
+    }
 
     match client.connect((host.as_str(), port)).await {
         Ok(mut stream) => {

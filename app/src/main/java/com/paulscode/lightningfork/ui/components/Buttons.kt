@@ -11,8 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -65,12 +64,12 @@ fun PrimaryButton(
     val shape = RoundedCornerShape(18.dp)
     Box(
         modifier = modifier
-            .height(height)
+            .heightIn(min = height)
             .scale(pressScale(source))
             .shadow(if (enabled) 18.dp else 0.dp, shape, ambientColor = AccentGlow, spotColor = Accent)
+            .alpha(if (enabled) 1f else 0.45f)
             .clip(shape)
             .background(AccentGradient)
-            .alpha(if (enabled) 1f else 0.45f)
             .clickable(
                 interactionSource = source,
                 indication = androidx.compose.material3.ripple(color = Color.White),
@@ -88,7 +87,14 @@ fun PrimaryButton(
                     Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
                 }
-                Text(text, style = MaterialTheme.typography.labelLarge, color = Color.White)
+                Text(
+                    text,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    maxLines = 2,
+                    modifier = Modifier.padding(vertical = 12.dp),
+                )
             }
         }
     }
@@ -109,12 +115,12 @@ fun SecondaryButton(
     val shape = RoundedCornerShape(18.dp)
     Box(
         modifier = modifier
-            .height(height)
+            .heightIn(min = height)
             .scale(pressScale(source))
+            .alpha(if (enabled) 1f else 0.45f)
             .clip(shape)
             .background(SurfaceRaised)
             .border(BorderStroke(1.dp, BorderStrong), shape)
-            .alpha(if (enabled) 1f else 0.45f)
             .clickable(
                 interactionSource = source,
                 indication = androidx.compose.material3.ripple(color = Accent),
@@ -129,7 +135,14 @@ fun SecondaryButton(
                 Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
             }
-            Text(text, style = MaterialTheme.typography.labelLarge, color = contentColor)
+            Text(
+                text,
+                style = MaterialTheme.typography.labelLarge,
+                color = contentColor,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                maxLines = 2,
+                modifier = Modifier.padding(vertical = 12.dp),
+            )
         }
     }
 }
@@ -154,7 +167,3 @@ fun QuietButton(
             .padding(horizontal = 12.dp, vertical = 10.dp),
     )
 }
-
-@Composable
-fun FullWidthPrimary(text: String, onClick: () -> Unit, enabled: Boolean = true, loading: Boolean = false, icon: ImageVector? = null) =
-    PrimaryButton(text, onClick, Modifier.fillMaxWidth(), enabled, loading, icon)

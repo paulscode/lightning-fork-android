@@ -36,6 +36,7 @@ class ArtiTorController(
         if (_status.value == TorStatus.Ready) return
         starting.withLock {
             if (_status.value == TorStatus.Ready) return
+            _progress.value = 0
             _status.value = TorStatus.Bootstrapping
             // Any failure to load or bootstrap Arti degrades to Failed; a native
             // error must never escape and crash the app.

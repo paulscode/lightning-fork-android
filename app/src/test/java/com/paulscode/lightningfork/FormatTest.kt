@@ -30,6 +30,9 @@ class FormatTest {
         assertNull(Format.parseAmount("1.5", AmountUnit.Sats))
         assertNull(Format.parseAmount("", AmountUnit.Sats))
         assertNull(Format.parseAmount("abc", AmountUnit.Btc))
+        // In BTC a comma is never grouping: "0,5" must not read as 5 BTC.
+        assertNull(Format.parseAmount("0,5", AmountUnit.Btc))
+        assertNull(Format.parseAmount("1.2.3", AmountUnit.Btc))
     }
 
     @Test fun fiat_estimates() {

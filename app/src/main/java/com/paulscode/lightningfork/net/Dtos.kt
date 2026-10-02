@@ -241,3 +241,19 @@ data class PriceResponse(val currency: String = "USD", val price: Double? = null
 
 @Serializable
 data class ErrorBody(val error: String = "")
+
+/**
+ * A send as it went to the node, kept on the phone until its outcome is known,
+ * so that a send cut off (or an app killed mid-send) can be asked about again
+ * with the very same request and id.
+ */
+@Serializable
+data class PendingSend(
+    val onchain: OnchainSendRequest? = null,
+    val pay: PayRequest? = null,
+    val amountSat: Long,
+    val feeSat: Long = 0,
+    val startedAtMs: Long = 0,
+) {
+    val lightning: Boolean get() = pay != null
+}

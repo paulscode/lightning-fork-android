@@ -54,6 +54,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.paulscode.lightningfork.ui.components.AmountField
 import com.paulscode.lightningfork.ui.components.AnimatedAmount
@@ -182,7 +184,10 @@ private fun InvoiceView(ui: ReceiveUi, vm: ReceiveViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(Modifier.widthIn(max = 340.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                QrCode("lightning:" + inv.paymentRequest.uppercase(), Modifier.fillMaxWidth())
+                QrCode(
+                    "lightning:" + inv.paymentRequest.uppercase(),
+                    Modifier.fillMaxWidth().semantics { contentDescription = "QR code of the invoice" },
+                )
                 if (expired) {
                     Box(
                         Modifier.matchParentSize().clip(RoundedCornerShape(20.dp)).background(Page.copy(alpha = 0.86f)),
@@ -264,7 +269,7 @@ private fun Received(sats: Long, ui: ReceiveUi, onClose: () -> Unit, onAnother: 
 
 @Composable
 private fun OnchainTab(ui: ReceiveUi, vm: ReceiveViewModel, wallet: WalletState) {
-    var withAmount by remember { mutableStateOf(ui.onchainAmountText.isNotBlank()) }
+    var withAmount by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(ui.onchainAmountText.isNotBlank()) }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -273,7 +278,7 @@ private fun OnchainTab(ui: ReceiveUi, vm: ReceiveViewModel, wallet: WalletState)
         val uri = ui.onchainUri
         Box(Modifier.widthIn(max = 340.dp).fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
             if (uri != null) {
-                QrCode(uri, Modifier.fillMaxWidth(), bitcoin = true)
+                QrCode(uri, Modifier.fillMaxWidth().semantics { contentDescription = "QR code of the address" }, bitcoin = true)
             } else {
                 Box(
                     Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)).background(SurfaceRaised),

@@ -36,6 +36,9 @@ class ApiException(val status: Int, override val message: String) : Exception(me
 /** No way to the node worked. */
 class UnreachableException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
+/** The device key could not be read from the Keystore; nothing was sent. */
+class KeyUnavailableException : IOException("This phone's key could not be read. Unlock the phone and try again.")
+
 val ApiJson = Json {
     ignoreUnknownKeys = true
     encodeDefaults = true
@@ -74,7 +77,13 @@ class Transport(
     @Volatile private var pinnedTor: OkHttpClient? = null
 
     private val base: OkHttpClient by lazy {
-        OkHttpClient.Builder().retryOnConnectionFailure(true).build()
+        // No redirects: the key goes to the node's own address and no other,
+        // and a POST is never replayed somewhere else.
+        OkHttpClient.Builder()
+            .retryOnConnectionFailure(true)
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .build()
     }
 
     @Synchronized
@@ -188,6 +197,7 @@ class Transport(
     ): String = withContext(Dispatchers.IO) {
         val list = attempts()
         if (list.isEmpty()) throw UnreachableException("No address for the node is known.")
+        val key = if (auth) apiKeyProvider() ?: throw KeyUnavailableException() else null
         var last: Exception? = null
         for (a in list) {
             try {
@@ -199,7 +209,7 @@ class Transport(
                 }
                 val url = (a.url.trimEnd('/') + path).toHttpUrl()
                 val b = build().url(url).header("Accept", "application/json")
-                if (auth) apiKeyProvider()?.let { b.header("Authorization", "Bearer $it") }
+                if (key != null) b.header("Authorization", "Bearer $key")
                 logi("${a.kind} $path")
                 clientFor(a.kind, timeoutSeconds).newCall(b.build()).execute().use { resp ->
                     val text = resp.body?.string().orEmpty()
@@ -214,6 +224,7 @@ class Transport(
                 throw e
             } catch (e: Exception) {
                 logw("${a.kind} $path failed: ${e.javaClass.simpleName}: ${e.message}")
+                if (a.route == Route.Tor) tor.checkHealth()
                 last = e
             }
         }

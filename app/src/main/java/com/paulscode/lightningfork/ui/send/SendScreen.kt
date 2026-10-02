@@ -135,7 +135,8 @@ fun SendScreen(
     BackHandler {
         when (ui.step) {
             SendStep.Review -> vm.backToInput()
-            SendStep.Failed -> vm.backToReview()
+            // An uncertain send is not edited and resent: close, or check again.
+            SendStep.Failed -> if (ui.uncertain) onClose() else vm.backToReview()
             SendStep.Sending -> Unit
             else -> onClose()
         }

@@ -20,6 +20,9 @@ interface TorController {
 
     fun stop()
 
+    /** After a failed request: notice a client that died after starting. */
+    fun checkHealth() {}
+
     /** SOCKS5 address once [status] is [TorStatus.Ready], else null. */
     fun socksAddress(): InetSocketAddress?
 

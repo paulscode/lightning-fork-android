@@ -125,6 +125,11 @@ class ReceiveViewModel(
             var failures = 0
             while (isActive) {
                 delay(if (failures > 0) 6000 else 2500)
+                // Past its expiry an invoice can't be paid; stop asking.
+                if (System.currentTimeMillis() / 1000 > inv.expiresAt + 30) {
+                    _ui.update { it.copy(invoiceState = "expired") }
+                    break
+                }
                 try {
                     val st = api.invoiceStatus(inv.paymentHash)
                     failures = 0

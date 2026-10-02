@@ -51,6 +51,7 @@ import com.paulscode.lightningfork.ui.send.SendViewModel
 import com.paulscode.lightningfork.ui.settings.SettingsScreen
 import com.paulscode.lightningfork.ui.theme.LightningForkTheme
 import com.paulscode.lightningfork.ui.theme.Page
+import kotlinx.coroutines.launch
 
 /** Where the app can be. */
 sealed interface Dest {
@@ -169,6 +170,8 @@ class MainActivity : FragmentActivity() {
             return
         }
         if ((scheme == "bitcoin" || scheme == "lightning") && container.isPaired) {
+            // Never over a send that is open: its outcome must stay on screen.
+            if (nav.stack.any { it.dest is Dest.Send }) return
             nav.home()
             nav.push(Dest.Send(prefill = data.toString()))
         }
@@ -184,12 +187,20 @@ class MainActivity : FragmentActivity() {
             unit = u
             container.settings.unit = u
         }
-        // A phone the node no longer knows goes back to pairing.
-        LaunchedEffect(wallet.revoked) {
-            if (wallet.revoked) {
-                container.unpair()
-                onUnpaired()
-            }
+        // A phone the node no longer knows: say so, and let the user choose.
+        if (wallet.revoked) {
+            com.paulscode.lightningfork.ui.pair.RemovedScreen(
+                onPairAgain = {
+                    nav.home()
+                    container.unpair()
+                    onUnpaired()
+                },
+                onTryAgain = {
+                    container.wallet.clearRevoked()
+                    container.appScope.launch { container.wallet.refresh() }
+                },
+            )
+            return
         }
         BackHandler(enabled = nav.stack.size > 1) { nav.pop() }
         val top = nav.stack.last()

@@ -19,7 +19,9 @@ import javax.crypto.spec.GCMParameterSpec
 class SecretStore(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("lf_secrets", Context.MODE_PRIVATE)
-    private val ks = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+    // Opened on first use, so a Keystore fault is a failed read, not a crash
+    // at launch.
+    private val ks by lazy { KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) } }
 
     @Volatile private var cached: String? = null
 

@@ -149,11 +149,14 @@ class SendViewModel(
 
     fun choosePayOnchain(onchain: Boolean) {
         _ui.update { it.copy(payOnchain = onchain, estimate = null, estimateError = null, error = null) }
+        requestId = NodeApi.newRequestId()
         if (onchain && _ui.value.fees == null) loadFees() else scheduleEstimate()
     }
 
+    // Any change to what is sent drops the estimate for the old one at once,
+    // so the screen never shows one amount with another's fee.
     fun onAmountText(text: String) {
-        _ui.update { it.copy(amountText = text, error = null) }
+        _ui.update { it.copy(amountText = text, error = null, estimate = null, estimateError = null) }
         scheduleEstimate()
     }
 
@@ -166,14 +169,14 @@ class SendViewModel(
     }
 
     fun onSendAll(all: Boolean) {
-        _ui.update { it.copy(sendAll = all, error = null) }
+        _ui.update { it.copy(sendAll = all, error = null, estimate = null, estimateError = null) }
         scheduleEstimate()
     }
 
     fun onPayerNote(text: String) = _ui.update { it.copy(payerNote = text.take(200)) }
 
     fun onFeeLevel(level: FeeLevel) {
-        _ui.update { it.copy(feeLevel = level) }
+        _ui.update { it.copy(feeLevel = level, estimate = null, estimateError = null) }
         scheduleEstimate()
     }
 
@@ -211,7 +214,7 @@ class SendViewModel(
             } catch (e: ApiException) {
                 _ui.update { it.copy(estimate = null, estimateError = e.message, estimating = false) }
             } catch (e: Exception) {
-                _ui.update { it.copy(estimating = false) }
+                _ui.update { it.copy(estimating = false, estimateError = "Couldn't work out the fee. Check the connection.") }
             }
         }
     }
@@ -224,6 +227,7 @@ class SendViewModel(
         if (amount == null || amount <= 0) return if (s.onchain && s.sendAll) "Working out the fee…" else "Enter an amount"
         if (s.onchain) {
             if (s.satPerVbyte == null) return "Waiting for fee rates"
+            if (s.estimating) return "Working out the fee…"
             if (s.estimateError != null) return s.estimateError
             val total = s.estimate?.totalSat ?: return "Working out the fee…"
             if (w != null && total > w.onchain.confirmedSat) return "More than your on-chain balance"
@@ -263,13 +267,23 @@ class SendViewModel(
                             requestId = requestId,
                         )
                     )
+                    if (res.status != "succeeded") throw java.io.IOException("payment status ${res.status}")
                     SendResult(true, res.amountSat.takeIf { it > 0 } ?: amount, res.feeSat, res.preimage)
                 }
                 _ui.update { it.copy(step = SendStep.Done, result = result) }
                 wallet.refresh()
             } catch (e: ApiException) {
-                // A definite answer: a new attempt is a new payment.
-                requestId = NodeApi.newRequestId()
+                if (definite(e.status)) {
+                    // The node said no: a new attempt is a new payment.
+                    requestId = NodeApi.newRequestId()
+                    _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = false) }
+                } else {
+                    // A server error or a cut-off call: the money may have
+                    // moved. Asking again with the same id is safe.
+                    _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = true) }
+                }
+            } catch (e: com.paulscode.lightningfork.net.KeyUnavailableException) {
+                // Nothing was sent.
                 _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = false) }
             } catch (e: Exception) {
                 // The answer was lost: retrying with the same id returns the
@@ -284,6 +298,9 @@ class SendViewModel(
             }
         }
     }
+
+    /** A 4xx the node chose to give, as opposed to an error on the way. */
+    private fun definite(status: Int) = status in 400..499 && status != 408 && status != 425 && status != 429
 
     fun retry() = send()
 

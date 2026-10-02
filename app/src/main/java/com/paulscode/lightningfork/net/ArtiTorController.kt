@@ -32,6 +32,7 @@ class ArtiTorController(
     private val starting = Mutex()
 
     override suspend fun start() {
+        checkHealth()
         if (_status.value == TorStatus.Ready) return
         starting.withLock {
             if (_status.value == TorStatus.Ready) return
@@ -65,6 +66,14 @@ class ArtiTorController(
             } catch (t: Throwable) {
                 _status.value = TorStatus.Failed
             }
+        }
+    }
+
+    // The proxy can fail after bootstrap (its listener died); the native side
+    // then reports -1 and clears its port, and the next start begins afresh.
+    override fun checkHealth() {
+        if (_status.value == TorStatus.Ready && runCatching { ArtiNative.nativeBootstrapPercent() }.getOrDefault(-1) < 0) {
+            _status.value = TorStatus.Failed
         }
     }
 

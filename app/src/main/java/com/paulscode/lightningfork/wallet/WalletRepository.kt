@@ -116,14 +116,20 @@ class WalletRepository(
                 if (settings.showFiat && now - lastPriceMs > 5 * 60_000) refreshPrice()
                 true
             } catch (e: ApiException) {
+                // A 401 is checked once more before the phone is called
+                // removed: the user is then asked, never unpaired silently.
+                val revoked = e.status == 401 && confirmRevoked()
                 _state.update {
                     it.copy(
                         refreshing = false,
                         error = e.message,
-                        revoked = e.status == 401,
+                        revoked = revoked,
                         connection = if (transport.route.value == Route.Tor) Connection.Tor else Connection.Lan,
                     )
                 }
+                false
+            } catch (e: com.paulscode.lightningfork.net.KeyUnavailableException) {
+                _state.update { it.copy(refreshing = false, error = e.message) }
                 false
             } catch (e: Exception) {
                 val torFailed = tor.status.value == TorStatus.Failed
@@ -138,6 +144,21 @@ class WalletRepository(
             }
         }
     }
+
+    private suspend fun confirmRevoked(): Boolean {
+        kotlinx.coroutines.delay(2_000)
+        return try {
+            api.wallet()
+            false
+        } catch (e: ApiException) {
+            e.status == 401
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** Back to normal after the user chose to try again. */
+    fun clearRevoked() = _state.update { it.copy(revoked = false, error = null) }
 
     private suspend fun refreshNode() {
         runCatching { api.bootstrap() }.onSuccess { boot ->

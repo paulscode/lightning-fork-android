@@ -79,7 +79,8 @@ and set `versionName`. Commit.
 
 ### 2. Build unsigned artifacts (build machine)
 ```
-release/build-artifacts.sh
+release/build-artifacts.sh                 # APK and AAB
+SIDELOAD_ONLY=1 release/build-artifacts.sh # the APK alone, for sideload testers
 ```
 Builds all four Arti ABIs, then the AAB + a universal APK, and stages them under
 `release/staging/` as `lightning-fork-<ver>.aab` and

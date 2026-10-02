@@ -19,17 +19,28 @@ if [ -f "$root/keystore.properties" ]; then
   exit 1
 fi
 
+# The notices shipped in the app, current with its dependencies.
+"$here/licenses.sh"
+
 # All ABIs so the universal APK and the AAB cover every device.
 ABIS="arm64-v8a armeabi-v7a x86_64 x86" "$root/rust/build-android.sh"
 
 
-( cd "$root" && ./gradlew --console=plain clean bundleRelease assembleRelease )
+# SIDELOAD_ONLY=1: the APK alone (testers sideload it; no Play listing yet).
+if [ -n "${SIDELOAD_ONLY:-}" ]; then
+  ( cd "$root" && ./gradlew --console=plain clean assembleRelease )
+else
+  ( cd "$root" && ./gradlew --console=plain clean bundleRelease assembleRelease )
+fi
 
+rm -rf "$staging"
 mkdir -p "$staging"
 apk="$(find "$root/app/build/outputs/apk/release" -name '*-release-unsigned.apk' | head -1)"
-aab="$(find "$root/app/build/outputs/bundle/release" -name '*-release.aab' | head -1)"
 cp "$apk" "$staging/lightning-fork-$ver-unsigned.apk"
-cp "$aab" "$staging/lightning-fork-$ver.aab"
+if [ -z "${SIDELOAD_ONLY:-}" ]; then
+  aab="$(find "$root/app/build/outputs/bundle/release" -name '*-release.aab' | head -1)"
+  cp "$aab" "$staging/lightning-fork-$ver.aab"
+fi
 
 echo
 echo "Unsigned artifacts staged in release/staging/:"

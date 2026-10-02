@@ -61,6 +61,7 @@ sealed interface Dest {
     data object Receive : Dest
     data object Activity : Dest
     data object Settings : Dest
+    data object Licenses : Dest
 }
 
 /** A screen on the stack, owning its view models: they end when it is popped. */
@@ -86,6 +87,17 @@ class Navigator : ViewModel() {
         return true
     }
 
+    /** Pairing's view models, kept across rotation; dropped once paired. */
+    var pairEntry: Entry? = null
+        private set
+
+    fun pairOwner(): Entry = pairEntry ?: Entry(Dest.Home).also { pairEntry = it }
+
+    fun pairingDone() {
+        pairEntry?.viewModelStore?.clear()
+        pairEntry = null
+    }
+
     fun home() {
         forward = false
         while (stack.size > 1) stack.removeAt(stack.lastIndex).viewModelStore.clear()
@@ -93,6 +105,7 @@ class Navigator : ViewModel() {
 
     override fun onCleared() {
         stack.forEach { it.viewModelStore.clear() }
+        pairEntry?.viewModelStore?.clear()
     }
 }
 
@@ -131,14 +144,12 @@ class MainActivity : FragmentActivity() {
                 Box(Modifier.fillMaxSize().background(Page)) {
                     var paired by androidx.compose.runtime.remember { mutableStateOf(container.isPaired) }
                     if (!paired) {
-                        // A fresh owner per pairing, so pairing again after an
-                        // unpair starts from the beginning.
-                        val owner = androidx.compose.runtime.remember { Entry(Dest.Home) }
-                        androidx.compose.runtime.DisposableEffect(owner) {
-                            onDispose { owner.viewModelStore.clear() }
-                        }
-                        CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
+                        // Kept by the Navigator, so a rotation mid-pairing keeps
+                        // the code, the name and the pairing under way; a new
+                        // owner after an unpair starts from the beginning.
+                        CompositionLocalProvider(LocalViewModelStoreOwner provides nav.pairOwner()) {
                             PairFlow {
+                                nav.pairingDone()
                                 paired = true
                                 container.wallet.setForeground(true)
                             }
@@ -241,7 +252,11 @@ class MainActivity : FragmentActivity() {
                         unit = unit,
                         onToggleUnit = { setUnit(if (unit == AmountUnit.Sats) AmountUnit.Btc else AmountUnit.Sats) },
                         onRefresh = { container.wallet.refresh() },
-                        onSend = { nav.push(Dest.Send()) },
+                        // An unfinished payment is settled before a new one starts:
+                        // only one is kept on the phone.
+                        onSend = {
+                            if (container.settings.pendingSend != null) nav.push(Dest.Send(resume = true)) else nav.push(Dest.Send())
+                        },
                         onReceive = { nav.push(Dest.Receive) },
                         onActivity = { nav.push(Dest.Activity) },
                         onSettings = { nav.push(Dest.Settings) },
@@ -259,6 +274,7 @@ class MainActivity : FragmentActivity() {
                         })
                         ReceiveScreen(vm, wallet, onClose = { nav.pop() })
                     }
+                    Dest.Licenses -> com.paulscode.lightningfork.ui.about.LicensesScreen(onClose = { nav.pop() })
                     Dest.Activity -> ActivityScreen(container.api, unit, onClose = { nav.pop() })
                     Dest.Settings -> SettingsScreen(
                         container = container,
@@ -267,6 +283,7 @@ class MainActivity : FragmentActivity() {
                         onUnit = ::setUnit,
                         lockAvailable = BiometricGate.isAvailable(this@MainActivity),
                         onClose = { nav.pop() },
+                        onLicenses = { nav.push(Dest.Licenses) },
                         onUnpaired = {
                             nav.home()
                             onUnpaired()

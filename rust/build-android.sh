@@ -15,6 +15,8 @@ out="$here/../app/src/main/jniLibs"
 : "${ABIS:=arm64-v8a}"
 : "${API:=26}"
 export ANDROID_NDK_HOME
+# 16 KB pages: newer devices load only native code aligned to them.
+export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-Wl,-z,max-page-size=16384"
 
 declare -A RUST_TARGET=(
   [arm64-v8a]=aarch64-linux-android

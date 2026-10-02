@@ -5,6 +5,7 @@ import com.paulscode.lightningfork.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -139,13 +140,15 @@ class Transport(
         val now = android.os.SystemClock.elapsedRealtime()
         if (_route.value == Route.Tor && canPin && now - lastLanProbeMs > LAN_RECHECK_MS) {
             lastLanProbeMs = now
-            lanAnswers()
+            // In the background: the next call goes by what it finds.
+            probeScope.launch { lanAnswers() }
         }
         val lg = lastGoodUrl ?: return list
         return list.sortedByDescending { it.url == lg }
     }
 
     @Volatile private var lastLanProbeMs = 0L
+    private val probeScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
 
     /** The node's own host names, the only ones the pinned root vouches for here. */
     private fun knownHosts(): Set<String> {
@@ -223,18 +226,19 @@ class Transport(
     suspend fun get(path: String, timeoutSeconds: Long = 30, auth: Boolean = true): String =
         execute(path, auth, timeoutSeconds) { Request.Builder().get() }
 
-    suspend fun post(path: String, body: String, timeoutSeconds: Long = 30, auth: Boolean = true): String =
-        execute(path, auth, timeoutSeconds) { Request.Builder().post(body.toRequestBody(JSON_MEDIA)) }
+    suspend fun post(path: String, body: String, timeoutSeconds: Long = 30, auth: Boolean = true, key: String? = null): String =
+        execute(path, auth, timeoutSeconds, key) { Request.Builder().post(body.toRequestBody(JSON_MEDIA)) }
 
     private suspend fun execute(
         path: String,
         auth: Boolean,
         timeoutSeconds: Long,
+        keyOverride: String? = null,
         build: () -> Request.Builder,
     ): String = withContext(Dispatchers.IO) {
         val list = attempts()
         if (list.isEmpty()) throw UnreachableException("No address for the node is known.")
-        val key = if (!auth) null else when (val read = apiKeyProvider()) {
+        val key = if (!auth) null else keyOverride ?: when (val read = apiKeyProvider()) {
             is com.paulscode.lightningfork.crypto.SecretStore.Read.Key -> read.value
             com.paulscode.lightningfork.crypto.SecretStore.Read.Lost,
             com.paulscode.lightningfork.crypto.SecretStore.Read.None -> throw KeyUnavailableException(lost = true)
@@ -275,7 +279,11 @@ class Transport(
             } catch (e: Exception) {
                 logw("${a.kind} $path failed: ${e.javaClass.simpleName}: ${e.message}")
                 if (a.route == Route.Tor) tor.checkHealth()
-                if (isCertificateFailure(e)) certFailure = e
+                // Only the onion authenticates the far end on its own: a
+                // certificate it does not chain to the pinned root is the
+                // node's. A LAN address that answers with another certificate
+                // may be some other device on a foreign network.
+                if (a.kind == Kind.TOR_TLS && isCertificateFailure(e)) certFailure = e
                 last = e
             }
         }

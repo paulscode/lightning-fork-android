@@ -23,6 +23,11 @@ class NodeApi(private val transport: Transport) {
     suspend fun pair(req: PairRequest): PairResponse =
         postJson("/api/v1/pair", PairRequest.serializer(), req, PairResponse.serializer(), auth = false)
 
+    /** Removes this phone on the node; [key] given, as after the phone forgot it. */
+    suspend fun unpair(key: String) {
+        transport.post("/api/v1/unpair", "{}", timeoutSeconds = 20, key = key)
+    }
+
     suspend fun bootstrap(): BootstrapResponse = getJson("/api/v1/bootstrap", BootstrapResponse.serializer())
 
     suspend fun endpoints(): EndpointsResponse = getJson("/api/v1/endpoints", EndpointsResponse.serializer())

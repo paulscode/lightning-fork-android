@@ -15,6 +15,7 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /** Builds the app's long-lived pieces once. */
 class AppContainer(context: Context) {
@@ -40,6 +41,23 @@ class AppContainer(context: Context) {
     val pendingPairing = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     val isPaired: Boolean get() = settings.isPaired && secrets.hasApiKey()
+
+    /**
+     * Unpair at the user's word: forget the node at once, and tell the node
+     * to remove this phone, in the background, with the key taken before it
+     * was forgotten (a pairing started meanwhile is not affected).
+     */
+    fun unpairAndRemove() {
+        val key = secrets.getApiKey()
+        val endpoints = settings.endpoints
+        unpair()
+        if (key != null) {
+            appScope.launch(Dispatchers.IO) {
+                val t = Transport(endpoints, tor) { com.paulscode.lightningfork.crypto.SecretStore.Read.None }
+                runCatching { kotlinx.coroutines.withTimeoutOrNull(60_000) { NodeApi(t).unpair(key) } }
+            }
+        }
+    }
 
     /** Forget the node: the key, the addresses, the cached numbers. */
     fun unpair() {

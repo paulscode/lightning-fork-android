@@ -164,6 +164,8 @@ data class OnchainSendRequest(
     val satPerVbyte: Long,
     val label: String? = null,
     val requestId: String,
+    /** Asking again about this very send (see PendingSend). */
+    val resume: Boolean? = null,
 )
 
 @Serializable
@@ -175,6 +177,8 @@ data class PayRequest(
     val amountSat: Long? = null,
     val payerNote: String? = null,
     val requestId: String,
+    /** Asking again about this very payment (see PendingSend). */
+    val resume: Boolean? = null,
 )
 
 @Serializable

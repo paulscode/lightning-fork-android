@@ -100,7 +100,7 @@ class SendViewModel(
         if (pending != null) {
             // A send whose outcome the app never heard: ask about it now.
             requestId = pending.onchain?.requestId ?: pending.pay?.requestId ?: requestId
-            execute(pending)
+            execute(pending, again = true)
         } else if (!prefill.isNullOrBlank()) {
             submit(prefill)
         }
@@ -124,7 +124,9 @@ class SendViewModel(
     fun submit(text: String? = null) {
         val input = (text ?: _ui.value.input).trim()
         if (input.isEmpty() || _ui.value.decoding) return
-        _ui.update { it.copy(input = input, decoding = true, inputError = null) }
+        estimateJob?.cancel()
+        estimateJob = null
+        _ui.update { it.copy(input = input, decoding = true, inputError = null, estimate = null, estimating = false, estimateError = null) }
         viewModelScope.launch {
             try {
                 val target = api.decode(input)
@@ -168,7 +170,11 @@ class SendViewModel(
         submit(text)
     }
 
-    fun backToInput() = _ui.update { it.copy(step = SendStep.Input, target = null, error = null, estimate = null) }
+    fun backToInput() {
+        estimateJob?.cancel()
+        estimateJob = null
+        _ui.update { it.copy(step = SendStep.Input, target = null, error = null, estimate = null, estimating = false, estimateError = null) }
+    }
 
     fun choosePayOnchain(onchain: Boolean) {
         _ui.update { it.copy(payOnchain = onchain, estimate = null, estimateError = null, error = null) }
@@ -224,6 +230,7 @@ class SendViewModel(
 
     private fun scheduleEstimate() {
         estimateJob?.cancel()
+        _ui.update { it.copy(estimate = null) }
         val s = _ui.value
         val t = s.active
         if (t == null || t.kind != "onchain") return
@@ -319,17 +326,17 @@ class SendViewModel(
      * id, which the node answers with the first outcome instead of sending
      * twice. Kept on the phone until the outcome is known.
      */
-    private fun execute(pending: PendingSend) {
+    private fun execute(pending: PendingSend, again: Boolean = false) {
         lastSent = pending
         settings.pendingSend = pending
         _ui.update { it.copy(step = SendStep.Sending, error = null, uncertain = false) }
         viewModelScope.launch {
             try {
                 val result = if (pending.onchain != null) {
-                    val res = api.sendOnchain(pending.onchain)
+                    val res = api.sendOnchain(if (again) pending.onchain.copy(resume = true) else pending.onchain)
                     SendResult(false, pending.amountSat, pending.feeSat, res.txid)
                 } else {
-                    val res = api.pay(pending.pay!!)
+                    val res = api.pay(if (again) pending.pay!!.copy(resume = true) else pending.pay!!)
                     when (res.status) {
                         "succeeded" -> SendResult(true, res.amountSat.takeIf { it > 0 } ?: pending.amountSat, res.feeSat, res.preimage)
                         "failed" -> throw ApiException(400, "The payment failed.")
@@ -342,7 +349,11 @@ class SendViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ApiException) {
-                if (definite(e.status)) {
+                // Asking again, only the node's verdict on the payment settles
+                // it: an error on the way (5xx, a removed key, a reused id)
+                // leaves it as unknown as before, under the same id.
+                val settled = if (again) definiteOnRecheck(e.status) else definite(e.status)
+                if (settled) {
                     // The node said no: nothing moved, and a new attempt is a
                     // new payment.
                     settings.pendingSend = null
@@ -354,9 +365,13 @@ class SendViewModel(
                     _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = true) }
                 }
             } catch (e: com.paulscode.lightningfork.net.KeyUnavailableException) {
-                // Nothing was sent.
-                settings.pendingSend = null
-                _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = false) }
+                // Nothing was sent now; on a re-ask, the first may have been.
+                if (again) {
+                    _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = true) }
+                } else {
+                    settings.pendingSend = null
+                    _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = false) }
+                }
             } catch (e: Exception) {
                 _ui.update {
                     it.copy(
@@ -377,13 +392,17 @@ class SendViewModel(
     private fun definite(status: Int) =
         (status in 400..499 && status != 408 && status != 425 && status != 429) || status == 503
 
+    private fun definiteOnRecheck(status: Int) =
+        status in 400..499 && status !in setOf(401, 403, 408, 422, 425, 429)
+
     /** After a failure: an uncertain send is asked about again, unchanged; a refused one is tried anew. */
     fun retry() {
         val s = _ui.value
+        if (s.step != SendStep.Failed) return
         val sent = lastSent
         if (s.uncertain && sent != null) {
-            execute(sent)
-        } else {
+            execute(sent, again = true)
+        } else if (s.target != null) {
             _ui.update { it.copy(step = SendStep.Review, error = null) }
             send()
         }

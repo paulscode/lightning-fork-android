@@ -7,15 +7,15 @@
 #   ./sign-and-checksum.sh <dir-with-unsigned-artifacts>
 #
 # Requires: apksigner for the APK (either APKSIGNER_JAR=apksigner.jar run via the
-# JDK, or APKSIGNER=/path/to/apksigner wrapper), jarsigner (JDK) for the AAB,
-# sha256sum, and gpg. See RELEASE.md.
+# JDK, or APKSIGNER=/path/to/apksigner wrapper), jarsigner (JDK) for an AAB if
+# one is staged (a sideload-only release has none), sha256sum, and gpg. See
+# RELEASE.md.
 set -euo pipefail
 
 dir="${1:-$(cd "$(dirname "$0")" && pwd)/staging}"
 : "${KEYSTORE:?set KEYSTORE=/path/to/lf-upload.jks}"
 : "${KEY_ALIAS:=lf-upload}"
 
-command -v jarsigner >/dev/null || { echo "jarsigner not found (install a JDK)" >&2; exit 1; }
 
 # apksigner: prefer the self-contained jar (portable to an air-gapped box that
 # only has a JDK); else an executable wrapper on PATH or via APKSIGNER.
@@ -43,6 +43,7 @@ apksigner verify --verbose "$signed_apk" | sed 's/^/  /'
 rm -f "$unsigned_apk" "${unsigned_apk}.idsig"
 
 if [ -n "$aab" ]; then
+  command -v jarsigner >/dev/null || { echo "jarsigner not found (install a JDK)" >&2; exit 1; }
   echo "Signing AAB (Play upload key)…"
   jarsigner -keystore "$KEYSTORE" -sigalg SHA256withRSA -digestalg SHA-256 \
     "$aab" "$KEY_ALIAS"
@@ -56,6 +57,6 @@ echo "PGP-signing SHA256SUMS…"
 
 echo
 echo "Ready to publish from $dir:"
-echo "  • $(basename "$aab")            -> Google Play (internal testing first)"
+[ -n "$aab" ] && echo "  • $(basename "$aab")            -> Google Play (internal testing first)"
 echo "  • $(basename "$signed_apk")     -> GitHub release (sideload)"
 echo "  • SHA256SUMS + SHA256SUMS.asc   -> GitHub release"

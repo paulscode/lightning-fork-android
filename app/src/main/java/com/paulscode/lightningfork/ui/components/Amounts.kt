@@ -44,29 +44,39 @@ fun AnimatedAmount(
     unitColor: Color = TextMuted,
     showUnit: Boolean = true,
 ) {
-    var from by remember { mutableLongStateOf(sats) }
-    var to by remember { mutableLongStateOf(sats) }
+    // What is on screen at rest, and the count under way: until the count
+    // for a new value starts, the old value stays; a new value mid-count
+    // carries on from where the count is.
+    var resting by remember { mutableLongStateOf(sats) }
+    var countFrom by remember { mutableLongStateOf(sats) }
+    var countTo by remember { mutableLongStateOf(sats) }
     val progress = remember { Animatable(1f) }
-    if (to != sats) {
-        // During this composition the count starts from what is on screen.
-        from = from + ((to - from) * progress.value).toLong()
-        to = sats
-    }
+    fun current(): Long =
+        if (progress.isRunning) countFrom + ((countTo - countFrom) * progress.value.toDouble()).toLong() else resting
     LaunchedEffect(sats) {
+        if (sats == resting && !progress.isRunning) return@LaunchedEffect
+        countFrom = current()
+        countTo = sats
         progress.snapTo(0f)
         progress.animateTo(1f, tween(durationMillis = 700, easing = FastOutSlowInEasing))
-        from = sats
+        resting = sats
     }
-    val shown = if (progress.value >= 1f) to else from + ((to - from) * progress.value).toLong()
+    val shown = current()
 
-    var scale by remember(unit) { mutableFloatStateOf(1f) }
-    var fitted by remember(unit) { mutableFloatStateOf(0f) }
+    // Shrinks to fit; starts again from full size when the figure gets
+    // shorter, so a big number that once shrank does not keep others small.
+    // Sized for the longer of where the count starts and ends, so crossing a
+    // digit while counting doesn't make it measure (and blank) again.
+    val text = Format.amount(shown, unit)
+    val sizeKey = maxOf(Format.amount(sats, unit).length, Format.amount(resting, unit).length)
+    var scale by remember(unit, sizeKey) { mutableFloatStateOf(1f) }
+    var fitted by remember(unit, sizeKey) { mutableFloatStateOf(0f) }
     Row(
         modifier = modifier.semantics { contentDescription = Format.amountWithUnit(sats, unit) },
         verticalAlignment = Alignment.Bottom,
     ) {
         Text(
-            Format.amount(shown, unit),
+            text,
             style = style.copy(fontFeatureSettings = "tnum", fontSize = style.fontSize * scale),
             color = color,
             maxLines = 1,

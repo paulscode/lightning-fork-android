@@ -583,7 +583,7 @@ private fun FailedStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit) {
             if (ui.uncertain) {
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    "Check again asks your node about this same payment; it never pays twice. Your activity shows it too once it went through.",
+                    "Check again asks your node about this same payment and never pays it twice. Your activity shows it too once it went through.",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextFaint,
                     textAlign = TextAlign.Center,
@@ -591,8 +591,28 @@ private fun FailedStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit) {
             }
         }
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryButton(if (ui.uncertain) "Check again" else "Try again", onClick = vm::retry, modifier = Modifier.fillMaxWidth())
-            SecondaryButton(if (ui.uncertain) "Close" else "Back", onClick = { if (ui.uncertain) onClose() else vm.backToReview() }, modifier = Modifier.fillMaxWidth())
+            when {
+                ui.uncertain -> {
+                    PrimaryButton("Check again", onClick = vm::retry, modifier = Modifier.fillMaxWidth())
+                    SecondaryButton("Close", onClick = onClose, modifier = Modifier.fillMaxWidth())
+                    com.paulscode.lightningfork.ui.components.QuietButton(
+                        "I checked my activity: forget this payment",
+                        onClick = {
+                            vm.dismissUncertain()
+                            onClose()
+                        },
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                        color = TextMuted,
+                    )
+                }
+                // A payment checked from Home that the node refused: there
+                // is nothing here to try again with.
+                ui.target == null -> PrimaryButton("Close", onClick = onClose, modifier = Modifier.fillMaxWidth())
+                else -> {
+                    PrimaryButton("Try again", onClick = vm::retry, modifier = Modifier.fillMaxWidth())
+                    SecondaryButton("Back", onClick = vm::backToReview, modifier = Modifier.fillMaxWidth())
+                }
+            }
         }
     }
 }

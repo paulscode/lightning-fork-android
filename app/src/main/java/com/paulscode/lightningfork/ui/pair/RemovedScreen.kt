@@ -69,8 +69,16 @@ fun RemovedScreen(
                 textAlign = TextAlign.Center,
             )
         }
-        PrimaryButton("Pair again", onClick = onPairAgain, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(10.dp))
-        SecondaryButton("Try again", onClick = onTryAgain, modifier = Modifier.fillMaxWidth())
+        // A changed certificate may be the network, not the node: trying
+        // again comes first there; pairing again wipes this phone's key.
+        if (reason == com.paulscode.lightningfork.wallet.Repair.CertificateChanged) {
+            PrimaryButton("Try again", onClick = onTryAgain, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(10.dp))
+            SecondaryButton("Pair again", onClick = onPairAgain, modifier = Modifier.fillMaxWidth())
+        } else {
+            PrimaryButton("Pair again", onClick = onPairAgain, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(10.dp))
+            SecondaryButton("Try again", onClick = onTryAgain, modifier = Modifier.fillMaxWidth())
+        }
     }
 }

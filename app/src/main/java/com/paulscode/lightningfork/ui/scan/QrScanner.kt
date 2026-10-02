@@ -40,8 +40,10 @@ fun QrScanner(
         )
     }
     val bound = remember { mutableListOf<Pair<ProcessCameraProvider, Array<androidx.camera.core.UseCase>>>() }
+    val disposed = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
     DisposableEffect(Unit) {
         onDispose {
+            disposed.set(true)
             // The camera is bound to the activity, which outlives this screen:
             // let it go now, or it stays on behind Review and Sending.
             bound.forEach { (provider, cases) -> runCatching { provider.unbind(*cases) } }
@@ -56,6 +58,8 @@ fun QrScanner(
             val previewView = PreviewView(ctx).apply { scaleType = PreviewView.ScaleType.FILL_CENTER }
             val providerFuture = ProcessCameraProvider.getInstance(ctx)
             providerFuture.addListener({
+                // Closed before the camera was ready: don't bind it now.
+                if (disposed.get()) return@addListener
                 val provider = providerFuture.get()
                 val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
                 val analysis = ImageAnalysis.Builder()

@@ -211,15 +211,30 @@ class WalletRepository(
     }
 
     private suspend fun refreshNode() {
+        val genAtStart = generation
         runCatching { api.bootstrap() }.onSuccess { boot ->
+            if (generation != genAtStart) return@onSuccess
             lastNodeMs = System.currentTimeMillis()
             settings.node = boot.node
             _state.update { it.copy(node = boot.node) }
         }
         // Learn the node's addresses afresh: a phone paired over Tor learns its
         // LAN address, and the other way round.
+        val gen = generation
         runCatching { api.endpoints() }.onSuccess { fresh ->
+            if (gen != generation) return@onSuccess
             val current = settings.endpoints
+            // Over the onion (which authenticates the node) the node names a
+            // root other than the pinned one: its certificate authority
+            // changed, as after a restore to another server. The LAN would
+            // only fail; say so rather than stay on Tor without a word.
+            val pinned = current.caSha256
+            if (transport.route.value == Route.Tor && pinned != null && fresh.caSha256 != null &&
+                pinned.replace(":", "").uppercase() != fresh.caSha256.replace(":", "").uppercase()
+            ) {
+                _state.update { it.copy(repair = Repair.CertificateChanged) }
+                return@onSuccess
+            }
             // A root is adopted only if it hashes to the fingerprint the user
             // paired with; one paired over an http onion without a fingerprint
             // takes the root the node hands over that authenticated channel.

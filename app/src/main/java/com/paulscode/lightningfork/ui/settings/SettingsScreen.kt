@@ -60,6 +60,7 @@ fun SettingsScreen(
     onUnit: (AmountUnit) -> Unit,
     lockAvailable: Boolean,
     onClose: () -> Unit,
+    onLicenses: () -> Unit = {},
     onUnpaired: () -> Unit,
 ) {
     val settings = container.settings
@@ -169,11 +170,10 @@ fun SettingsScreen(
             Section("About")
             AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
                 InfoRow("App version", BuildConfig.VERSION_NAME)
-                Text(
-                    "Inter typeface © The Inter Project Authors, under the SIL Open Font License 1.1.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextFaint,
-                    modifier = Modifier.padding(top = 6.dp),
+                com.paulscode.lightningfork.ui.components.QuietButton(
+                    "Open-source licenses",
+                    onClick = onLicenses,
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
             Spacer(Modifier.height(28.dp))
@@ -185,12 +185,12 @@ fun SettingsScreen(
             onDismissRequest = { confirmUnpair = false },
             title = { Text("Unpair this phone?") },
             text = {
-                Text("The phone forgets your node and its key. Your funds stay on your node. To use the app again, pair it from the dashboard.")
+                Text("The phone forgets your node and its key, and asks your node to remove it. Your funds stay on your node. To use the app again, pair it from the dashboard.")
             },
             confirmButton = {
                 TextButton(onClick = {
                     confirmUnpair = false
-                    container.unpair()
+                    container.unpairAndRemove()
                     onUnpaired()
                 }) { Text("Unpair", color = Danger) }
             },

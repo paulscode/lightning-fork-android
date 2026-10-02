@@ -122,6 +122,8 @@ class PairingCoordinator(
             if (caPem != null && payload.ca != null &&
                 !CaPinning.matchesFingerprint(CaPinning.parsePem(caPem), payload.ca)
             ) {
+                // The node made a key for this phone; don't leave it there.
+                runCatching { api.unpair(paired.apiKey) }
                 return PairResult.Failure(
                     "The node's certificate does not match the code. Pairing was stopped.",
                     recoverable = false,

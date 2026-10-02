@@ -86,7 +86,7 @@ fun ReceiveScreen(vm: ReceiveViewModel, wallet: WalletState, onClose: () -> Unit
         TopBar("Receive", onBack = onClose)
         if (!(ui.tab == ReceiveTab.Lightning && ui.invoiceState == "settled")) {
             SegmentedToggle(
-                options = listOf("Lightning", "Bitcoin"),
+                options = listOf("Lightning", "On-chain"),
                 selected = if (ui.tab == ReceiveTab.Lightning) 0 else 1,
                 onSelect = { vm.selectTab(if (it == 0) ReceiveTab.Lightning else ReceiveTab.Onchain) },
                 modifier = Modifier.padding(horizontal = 20.dp),

@@ -37,7 +37,7 @@ aab="$(find "$dir" -name '*.aab' | head -1)"
 signed_apk="${unsigned_apk/-unsigned/}"
 
 echo "Signing sideload APK with the upload key…"
-apksigner sign --ks "$KEYSTORE" --ks-key-alias "$KEY_ALIAS" \
+apksigner sign --ks "$KEYSTORE" --ks-key-alias "$KEY_ALIAS" --v4-signing-enabled false \
   --out "$signed_apk" "$unsigned_apk"
 apksigner verify --verbose "$signed_apk" | sed 's/^/  /'
 rm -f "$unsigned_apk" "${unsigned_apk}.idsig"

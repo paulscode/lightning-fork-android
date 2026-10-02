@@ -50,6 +50,9 @@ class PairingCoordinator(
     private val secrets: SecretStore,
     private val settings: SettingsStore,
 ) {
+    // One nonce per code, reused if pairing with it is tried again.
+    private val nonces = mutableMapOf<String, String>()
+
     fun parsePayload(text: String): PairingPayload? = PairingCodes.parse(text)
 
     fun isExpired(payload: PairingPayload, nowMs: Long = System.currentTimeMillis()): Boolean =
@@ -105,7 +108,13 @@ class PairingCoordinator(
             }
 
             onProgress(PairPhase.Claiming)
-            val paired = api.pair(PairRequest(payload.code, label))
+            val nonce = synchronized(nonces) {
+                nonces.getOrPut(payload.code) {
+                    val bytes = ByteArray(24).also { java.security.SecureRandom().nextBytes(it) }
+                    android.util.Base64.encodeToString(bytes, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING)
+                }
+            }
+            val paired = api.pair(PairRequest(payload.code, label, nonce))
 
             // The root from the answer, or the one captured over LAN; either
             // must match the QR code before it is trusted.

@@ -18,8 +18,13 @@ data class PairingPayload(
     val ca: String? = null,
 )
 
+/**
+ * [claimNonce]: random, kept for the code. If the answer is lost, the same
+ * code with the same nonce can be claimed again briefly; nobody else who saw
+ * the QR code has the nonce.
+ */
 @Serializable
-data class PairRequest(val enrollCode: String, val label: String)
+data class PairRequest(val enrollCode: String, val label: String, val claimNonce: String? = null)
 
 @Serializable
 data class NodeInfo(

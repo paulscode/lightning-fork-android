@@ -349,11 +349,20 @@ private fun BalanceCard(
             )
             .padding(20.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            mark()
-            Spacer(Modifier.width(12.dp))
-            Text(title, style = MaterialTheme.typography.titleMedium, color = TextPrimary, modifier = Modifier.weight(1f))
-            Pill(caption, color = Accent)
+        // The pill moves under the title when they don't fit side by side
+        // (large font sizes), instead of the title breaking mid-word.
+        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+        androidx.compose.foundation.layout.FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 8.dp)) {
+                mark()
+                Spacer(Modifier.width(12.dp))
+                Text(title, style = MaterialTheme.typography.titleMedium, color = TextPrimary, maxLines = 1, softWrap = false)
+            }
+            Box(Modifier.align(Alignment.CenterVertically)) { Pill(caption, color = Accent) }
         }
         Spacer(Modifier.height(18.dp))
         Box(Modifier.heightIn(min = 44.dp), contentAlignment = Alignment.BottomStart) {

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext HTTP is blocked by default (Android 9+) and stays that way — LAN uses
+  pinned HTTPS. The sole exception is *.onion: Tor's onion address authenticates
+  the server end-to-end, so plain HTTP inside the circuit is correct and safe.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">onion</domain>
+    </domain-config>
+</network-security-config>

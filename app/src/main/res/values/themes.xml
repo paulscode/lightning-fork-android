@@ -1,0 +1,10 @@
+<resources>
+    <!-- Dark base so the launch window matches the app (no white flash before
+         Compose draws). The UI's colors come from the Compose theme. -->
+    <style name="Theme.LightningFork" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/page</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:colorBackground">@color/page</item>
+    </style>
+</resources>

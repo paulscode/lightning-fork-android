@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The dashboard's dark theme; see ui/theme/Color.kt. -->
+    <color name="page">#FF050B18</color>
+    <color name="surface">#FF0C1630</color>
+    <color name="accent">#FF4E93FF</color>
+</resources>

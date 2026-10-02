@@ -1,0 +1,23 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+/app/build/
+*.apk
+*.keystore
+!debug.keystore
+
+# Rust / embedded Arti native build
+/rust/lf-arti/target/
+/app/src/main/jniLibs/
+
+# Release signing & staging (never commit keys or secrets)
+keystore.properties
+*.jks
+/release/staging/
+/release/out/

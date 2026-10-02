@@ -1,0 +1,36 @@
+[package]
+name = "lf-arti"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "lf_arti"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = "0.21"
+once_cell = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+paranoid-android = "0.2"
+anyhow = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "sync", "time", "macros"] }
+arti-client = { version = "0.44", default-features = false, features = ["tokio", "rustls", "onion-service-client"] }
+tor-rtcompat = { version = "0.44", default-features = false, features = ["tokio", "rustls"] }
+# rustls 0.23 needs a process-level CryptoProvider chosen explicitly. Pull it in
+# directly with the ring backend so we can install_default() at startup (Arti
+# doesn't do it for us), otherwise its TLS setup panics.
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+# Arti pulls rusqlite transitively; force the vendored SQLite so it builds
+# statically instead of linking a system libsqlite3 that Android doesn't provide.
+rusqlite = { version = "0.39", features = ["bundled"] }
+
+[profile.release]
+opt-level = "z"
+strip = true
+# NOTE: do NOT set panic = "abort" here. Arti runs on background Tokio tasks; with
+# unwinding, a panic fails only that task and the app survives. With abort, any
+# panic anywhere in the Tor stack takes the whole process down.
+# LTO/codegen-units=1 give a smaller lib but a much slower link over the full
+# Arti tree; enable them for the final Play release build once it's validated.

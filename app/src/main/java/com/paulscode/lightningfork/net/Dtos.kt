@@ -110,10 +110,45 @@ data class FeesResponse(
     val high: FeeRate,
 )
 
+/**
+ * What paying a Bitcoin invoice through the service would cost now, in sats
+ * of this chain. [maxIncomingSat] is the ceiling the payment is held to, and
+ * the figure to show; [incomingSat] what is expected, [feeSat] the service's
+ * part of it. [rate] is bitcoin paid out per coin of this chain paid in.
+ */
+@Serializable
+data class BitcoinInvoiceEstimate(
+    val incomingSat: Long,
+    val feeSat: Long = 0,
+    val maxIncomingSat: Long,
+    val routingFeeLimitSat: Long = 0,
+    val rate: Double = 0.0,
+    val spread: Double = 0.0,
+    val minSat: Long? = null,
+    val maxSat: Long? = null,
+    val serviceLabel: String = "",
+    val open: Boolean = true,
+    val refusal: String? = null,
+)
+
+/**
+ * The market rate a Bitcoin invoice's price is checked against: [premium] is
+ * how far the price is from it, [premiumAllowed] how far it may be, both as
+ * fractions (0.05 is 5%).
+ */
+@Serializable
+data class BitcoinInvoiceReference(
+    val rate: Double = 0.0,
+    val premiumAllowed: Double = 0.0,
+    val premium: Double = 0.0,
+    val withinLimit: Boolean = true,
+    val source: String = "",
+)
+
 /** What a pasted or scanned text turned out to be, and how to pay it. */
 @Serializable
 data class PaymentTarget(
-    /** onchain, bolt11, offer, bolt12-invoice or unsupported. */
+    /** onchain, bolt11, offer, bolt12-invoice, bitcoin-invoice or unsupported. */
     val kind: String,
     val request: String = "",
     val address: String? = null,
@@ -132,8 +167,18 @@ data class PaymentTarget(
     val message: String? = null,
     /** The on-chain way to pay a unified BIP 21 request. */
     val fallback: PaymentTarget? = null,
+    /** A Bitcoin invoice: false whenever [message] says why it can't be paid now. */
+    val payable: Boolean = true,
+    /** A Bitcoin invoice: its price, or null without a service to ask. */
+    val estimate: BitcoinInvoiceEstimate? = null,
+    val reference: BitcoinInvoiceReference? = null,
+    /** Why there is no market rate to check the price against. */
+    val referenceError: String? = null,
 ) {
     val isLightning: Boolean get() = kind == "bolt11" || kind == "offer" || kind == "bolt12-invoice"
+
+    /** An invoice of the original Bitcoin chain, paid through the service. */
+    val isBitcoinInvoice: Boolean get() = kind == "bitcoin-invoice"
 }
 
 @Serializable
@@ -181,6 +226,31 @@ data class PayRequest(
     val resume: Boolean? = null,
 )
 
+/**
+ * [maxIncomingSat]: the estimate's ceiling the user agreed to; the node pays
+ * no more.
+ */
+@Serializable
+data class BitcoinInvoicePayRequest(
+    val request: String,
+    val maxIncomingSat: Long,
+    val requestId: String,
+    /** Asking again about this very payment (see PendingSend). */
+    val resume: Boolean? = null,
+)
+
+/** The Bitcoin invoice a payment paid: [amountSat] in Bitcoin. */
+@Serializable
+data class PaidBitcoinInvoice(
+    val amountSat: Long = 0,
+    val description: String = "",
+    val paymentHash: String = "",
+)
+
+/**
+ * [amountSat] and [feeSat] are what it cost here. Paying a Bitcoin invoice,
+ * [bitcoinInvoice] is what was paid there.
+ */
 @Serializable
 data class PayResponse(
     val status: String,
@@ -188,6 +258,7 @@ data class PayResponse(
     val preimage: String = "",
     val amountSat: Long = 0,
     val feeSat: Long = 0,
+    val bitcoinInvoice: PaidBitcoinInvoice? = null,
 )
 
 @Serializable
@@ -240,6 +311,18 @@ data class ActivityItem(
     val confirmations: Long? = null,
     val description: String = "",
     val reference: String = "",
+    /** A payment that paid a Bitcoin invoice: what it paid there. */
+    val bitcoinInvoice: ActivityBitcoinInvoice? = null,
+    /** The proof of a paid Bitcoin invoice. */
+    val preimage: String? = null,
+)
+
+/** [amountSat] in Bitcoin; [state] is paid, pending or returned. */
+@Serializable
+data class ActivityBitcoinInvoice(
+    val amountSat: Long = 0,
+    val description: String = "",
+    val state: String = "",
 )
 
 @Serializable
@@ -248,8 +331,9 @@ data class ActivityResponse(val items: List<ActivityItem> = emptyList())
 @Serializable
 data class PriceResponse(val currency: String = "USD", val price: Double? = null)
 
+/** [code]: a refusal's stable name; [uncertain]: the money may have moved. */
 @Serializable
-data class ErrorBody(val error: String = "")
+data class ErrorBody(val error: String = "", val code: String? = null, val uncertain: Boolean = false)
 
 /**
  * A send as it went to the node, kept on the phone until its outcome is known,
@@ -260,9 +344,13 @@ data class ErrorBody(val error: String = "")
 data class PendingSend(
     val onchain: OnchainSendRequest? = null,
     val pay: PayRequest? = null,
+    val bitcoinInvoice: BitcoinInvoicePayRequest? = null,
+    /** At most what it costs here; for a Bitcoin invoice, its ceiling. */
     val amountSat: Long,
     val feeSat: Long = 0,
     val startedAtMs: Long = 0,
+    /** A Bitcoin invoice's own amount, in Bitcoin. */
+    val bitcoinAmountSat: Long? = null,
 ) {
-    val lightning: Boolean get() = pay != null
+    val lightning: Boolean get() = pay != null || bitcoinInvoice != null
 }

@@ -30,9 +30,16 @@ enum class Route { Lan, Tor }
 
 /**
  * The node answered, but not with success. [message] is the node's own
- * sentence for the user when it gave one.
+ * sentence for the user when it gave one; [code], a refusal the app can
+ * branch on, when it gave one; [uncertain], its word that the money may
+ * have moved.
  */
-class ApiException(val status: Int, override val message: String) : Exception(message)
+class ApiException(
+    val status: Int,
+    override val message: String,
+    val code: String? = null,
+    val uncertain: Boolean = false,
+) : Exception(message)
 
 /** No way to the node worked. */
 class UnreachableException(message: String, cause: Throwable? = null) : IOException(message, cause)
@@ -226,8 +233,19 @@ class Transport(
     suspend fun get(path: String, timeoutSeconds: Long = 30, auth: Boolean = true): String =
         execute(path, auth, timeoutSeconds) { Request.Builder().get() }
 
-    suspend fun post(path: String, body: String, timeoutSeconds: Long = 30, auth: Boolean = true, key: String? = null): String =
-        execute(path, auth, timeoutSeconds, key) { Request.Builder().post(body.toRequestBody(JSON_MEDIA)) }
+    suspend fun post(
+        path: String,
+        body: String,
+        timeoutSeconds: Long = 30,
+        auth: Boolean = true,
+        key: String? = null,
+        extraHeaders: Map<String, String> = emptyMap(),
+    ): String =
+        execute(path, auth, timeoutSeconds, key) {
+            val b = Request.Builder().post(body.toRequestBody(JSON_MEDIA))
+            extraHeaders.forEach { (name, value) -> b.header(name, value) }
+            b
+        }
 
     private suspend fun execute(
         path: String,
@@ -270,7 +288,7 @@ class Transport(
                     lastGoodUrl = a.url
                     _route.value = a.route
                     if (!resp.isSuccessful) {
-                        throw ApiException(resp.code, errorMessage(resp.code, text))
+                        throw apiError(resp.code, text)
                     }
                     return@withContext text
                 }
@@ -301,10 +319,18 @@ class Transport(
         return false
     }
 
-    private fun errorMessage(code: Int, body: String): String {
-        val fromNode = runCatching { ApiJson.decodeFromString(ErrorBody.serializer(), body).error }
-            .getOrNull()
-            ?.takeIf { it.isNotBlank() }
+    private fun apiError(status: Int, body: String): ApiException {
+        val parsed = runCatching { ApiJson.decodeFromString(ErrorBody.serializer(), body) }.getOrNull()
+        return ApiException(
+            status,
+            errorMessage(status, parsed?.error),
+            code = parsed?.code?.takeIf { it.isNotBlank() },
+            uncertain = parsed?.uncertain == true,
+        )
+    }
+
+    private fun errorMessage(code: Int, error: String?): String {
+        val fromNode = error?.takeIf { it.isNotBlank() }
         return fromNode ?: when (code) {
             401 -> "This phone is no longer paired with your node."
             429 -> "Too many attempts. Try again in a few minutes."

@@ -104,7 +104,12 @@ fun QrCode(content: String, modifier: Modifier = Modifier, logo: Boolean = true,
                         contentAlignment = Alignment.Center,
                     ) {
                         if (bitcoin) {
-                            Text("₿", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 26.sp)
+                            Image(
+                                painterResource(R.drawable.ic_bitcoin),
+                                contentDescription = null,
+                                colorFilter = ColorFilter.tint(Color.White),
+                                modifier = Modifier.fillMaxSize(0.62f),
+                            )
                         } else {
                             Image(
                                 painterResource(R.drawable.ic_bolt),

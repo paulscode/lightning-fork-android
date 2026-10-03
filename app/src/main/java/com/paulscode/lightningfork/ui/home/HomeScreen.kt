@@ -393,7 +393,12 @@ fun BitcoinMark(size: androidx.compose.ui.unit.Dp = 36.dp) {
         Modifier.size(size).clip(CircleShape).background(BitcoinGradient),
         contentAlignment = Alignment.Center,
     ) {
-        Text("₿", color = Color.White, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.5f).sp)
+        Image(
+            painterResource(R.drawable.ic_bitcoin),
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(Color.White),
+            modifier = Modifier.size(size * 0.55f),
+        )
     }
 }
 

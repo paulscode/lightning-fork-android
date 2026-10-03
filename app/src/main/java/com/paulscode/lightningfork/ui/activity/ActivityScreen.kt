@@ -1,6 +1,8 @@
 package com.paulscode.lightningfork.ui.activity
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CallMade
 import androidx.compose.material.icons.rounded.CallReceived
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -37,12 +40,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.paulscode.lightningfork.data.AmountUnit
 import com.paulscode.lightningfork.net.ActivityItem
 import com.paulscode.lightningfork.net.ApiException
 import com.paulscode.lightningfork.net.NodeApi
+import com.paulscode.lightningfork.ui.components.InfoRow
 import com.paulscode.lightningfork.ui.components.Notice
 import com.paulscode.lightningfork.ui.components.Pill
 import com.paulscode.lightningfork.ui.components.TopBar
@@ -57,6 +63,7 @@ import com.paulscode.lightningfork.ui.theme.TextFaint
 import com.paulscode.lightningfork.ui.theme.TextMuted
 import com.paulscode.lightningfork.ui.theme.TextPrimary
 import com.paulscode.lightningfork.ui.theme.Warning
+import com.paulscode.lightningfork.util.Clipboard
 import com.paulscode.lightningfork.util.Format
 import kotlinx.coroutines.launch
 
@@ -126,59 +133,99 @@ fun ActivityScreen(api: NodeApi, unit: AmountUnit, onClose: () -> Unit) {
 @Composable
 private fun ActivityRow(item: ActivityItem, unit: AmountUnit) {
     val incoming = item.direction == "in"
-    Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box {
-            if (item.kind == "onchain") BitcoinMark(40.dp) else LightningMark(40.dp)
-            Box(
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .size(18.dp)
-                    .clip(CircleShape)
-                    .background(Page)
-                    .padding(2.dp)
-                    .clip(CircleShape)
-                    .background(if (incoming) Success else Accent),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    if (incoming) Icons.Rounded.CallReceived else Icons.Rounded.CallMade,
-                    contentDescription = null,
-                    tint = Page,
-                    modifier = Modifier.size(11.dp),
+    val bitcoin = item.bitcoinInvoice
+    // A Bitcoin invoice opens to its details: what it paid, and the proof.
+    var open by remember { mutableStateOf(false) }
+    Column(
+        if (bitcoin != null) Modifier.fillMaxWidth().clickable(onClickLabel = "Show details") { open = !open } else Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box {
+                if (item.kind == "onchain" || bitcoin != null) BitcoinMark(40.dp) else LightningMark(40.dp)
+                Box(
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(Page)
+                        .padding(2.dp)
+                        .clip(CircleShape)
+                        .background(if (incoming) Success else Accent),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        if (incoming) Icons.Rounded.CallReceived else Icons.Rounded.CallMade,
+                        contentDescription = null,
+                        tint = Page,
+                        modifier = Modifier.size(11.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(ActivityLabels.title(item), style = MaterialTheme.typography.titleSmall, color = TextPrimary, maxLines = 1)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(Format.ago(item.timestamp), style = MaterialTheme.typography.bodySmall, color = TextFaint)
+                    ActivityLabels.status(item)?.let { (text, tone) ->
+                        Pill(text, color = if (tone == StatusTone.Waiting) Warning else Danger)
+                    }
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    (if (incoming) "+" else "−") + Format.amountWithUnit(item.amountSat, unit),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = when {
+                        ActivityLabels.didNotMove(item) -> TextFaint
+                        incoming -> Success
+                        else -> TextPrimary
+                    },
                 )
-            }
-        }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            val title = item.description.ifBlank {
-                when {
-                    incoming && item.kind == "onchain" -> "Received on-chain"
-                    incoming -> "Received"
-                    item.kind == "onchain" -> "Sent on-chain"
-                    else -> "Sent"
-                }
-            }
-            Text(title, style = MaterialTheme.typography.titleSmall, color = TextPrimary, maxLines = 1)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(Format.ago(item.timestamp), style = MaterialTheme.typography.bodySmall, color = TextFaint)
-                when (item.status) {
-                    "pending" -> Pill(if (item.kind == "onchain") "Confirming" else "Pending", color = Warning)
-                    "failed" -> Pill("Failed", color = Danger)
+                if (bitcoin != null) {
+                    Text("${Format.amountWithUnit(bitcoin.amountSat, unit)} on Bitcoin", style = MaterialTheme.typography.bodySmall, color = TextFaint)
+                } else if (!incoming && item.feeSat > 0) {
+                    Text("fee ${Format.amountWithUnit(item.feeSat, unit)}", style = MaterialTheme.typography.bodySmall, color = TextFaint)
                 }
             }
         }
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                (if (incoming) "+" else "−") + Format.amountWithUnit(item.amountSat, unit),
-                style = MaterialTheme.typography.titleSmall,
-                color = when {
-                    item.status == "failed" -> TextFaint
-                    incoming -> Success
-                    else -> TextPrimary
-                },
-            )
-            if (!incoming && item.feeSat > 0) {
-                Text("fee ${Format.amountWithUnit(item.feeSat, unit)}", style = MaterialTheme.typography.bodySmall, color = TextFaint)
+        if (bitcoin != null) {
+            AnimatedVisibility(open) {
+                BitcoinInvoiceDetails(item, unit)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BitcoinInvoiceDetails(item: ActivityItem, unit: AmountUnit) {
+    val bitcoin = item.bitcoinInvoice ?: return
+    val context = LocalContext.current
+    Column(Modifier.fillMaxWidth().padding(start = 54.dp, bottom = 12.dp)) {
+        val about = bitcoin.description.ifBlank { item.description }
+        if (about.isNotBlank()) InfoRow("Description", about)
+        InfoRow("Paid on Bitcoin", Format.amountWithUnit(bitcoin.amountSat, unit))
+        InfoRow("Cost", Format.amountWithUnit(item.amountSat, unit))
+        if (item.feeSat > 0) InfoRow("Routing fee", Format.amountWithUnit(item.feeSat, unit))
+        InfoRow(
+            "Status",
+            when (bitcoin.state) {
+                "paid" -> "Paid"
+                "pending" -> "On its way"
+                "returned" -> "Returned, nothing was paid"
+                else -> bitcoin.state
+            },
+        )
+        val proof = item.preimage
+        if (!proof.isNullOrBlank()) {
+            Row(
+                Modifier.fillMaxWidth().clickable { Clipboard.copySensitive(context, proof, "preimage") }.padding(vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Proof of payment", style = MaterialTheme.typography.bodyMedium, color = TextMuted)
+                Spacer(Modifier.weight(1f))
+                Text(Format.middle(proof, 8, 8), style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace), color = TextPrimary)
+                Spacer(Modifier.width(8.dp))
+                Icon(Icons.Rounded.ContentCopy, contentDescription = "Copy", tint = Accent, modifier = Modifier.size(18.dp))
             }
         }
     }

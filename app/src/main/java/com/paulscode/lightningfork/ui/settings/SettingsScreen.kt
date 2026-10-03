@@ -116,7 +116,18 @@ fun SettingsScreen(
                 endpoints.lanUrl?.let { InfoRow("Local address", it.removePrefix("https://")) }
                 endpoints.lanIp?.let { InfoRow("Local IP", it.removePrefix("https://")) }
                 endpoints.onionUrl?.let { InfoRow("Tor address", Format.middle(it.substringAfter("://"), 10, 12)) }
-                InfoRow(
+                // Without an onion address there is nothing for Tor to reach:
+                // the app works at home only until the node has one.
+                if (endpoints.onionUrl == null) {
+                    InfoRow("Away from home", "Not set up", valueColor = Warning)
+                    Text(
+                        "Your node has no onion address yet, so the app reaches it only on your local network. " +
+                            "The dashboard's Mobile app screen shows how to add one; the app picks it up the next time it connects at home.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted,
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
+                } else InfoRow(
                     "Tor",
                     when (torStatus) {
                         TorStatus.Stopped -> "Starts when needed"

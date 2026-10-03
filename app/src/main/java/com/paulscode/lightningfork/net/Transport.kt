@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -83,6 +84,7 @@ private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
 class Transport(
     @Volatile var endpoints: ServerEndpoints,
     private val tor: TorController,
+    private val localNetwork: LocalNetwork = LocalNetwork { true },
     private val apiKeyProvider: () -> com.paulscode.lightningfork.crypto.SecretStore.Read,
 ) {
     @Volatile private var lastGoodUrl: String? = null
@@ -150,8 +152,64 @@ class Transport(
             // In the background: the next call goes by what it finds.
             probeScope.launch { lanAnswers() }
         }
-        val lg = lastGoodUrl ?: return list
-        return list.sortedByDescending { it.url == lg }
+        val lg = lastGoodUrl
+        // Away from Wi-Fi the home addresses would only spend seconds
+        // failing before the onion is tried: the onion goes first there, and
+        // they stay as a fallback (a VPN can reach home; the probe above then
+        // moves calls back to the LAN).
+        val torFirst = !localNetwork.likely()
+        return list.sortedWith(
+            compareByDescending<Attempt> { torFirst && it.route == Route.Tor }
+                .thenByDescending { it.url == lg },
+        )
+    }
+
+    /**
+     * Starts Tor ahead of the first call that will need it: away from Wi-Fi,
+     * or when the last call went over Tor. Bootstrapping then overlaps the
+     * app's start instead of following the failed home addresses.
+     */
+    fun warmUp() {
+        if (endpoints.onionUrl == null) return
+        if (tor.status.value == TorStatus.Ready || tor.status.value == TorStatus.Bootstrapping) return
+        if (!localNetwork.likely() || _route.value == Route.Tor) startTorInBackground()
+    }
+
+    private fun startTorInBackground() {
+        probeScope.launch { runCatching { tor.start() } }
+    }
+
+    @Volatile private var onionWarmedMs = 0L
+
+    /**
+     * Keeps the way to the onion ready while the phone is at home, so that
+     * leaving Wi-Fi does not start from nothing. Reaching an onion takes Tor
+     * a lookup of the service's descriptor, one directory relay at a time,
+     * and a slow relay costs it 15 s or more (measured: 5 to 44 s for the
+     * first connection, 2 s once the descriptor is known). Tor keeps the
+     * descriptor for hours while the app runs, so after a call at home this
+     * starts Tor if needed and opens one connection to the onion, then
+     * closes it: no request reaches the node. At most every half hour.
+     */
+    private fun warmOnion() {
+        val onion = endpoints.onionUrl?.toHttpUrlOrNull() ?: return
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - onionWarmedMs < ONION_REWARM_MS && onionWarmedMs != 0L) return
+        onionWarmedMs = now
+        probeScope.launch {
+            runCatching {
+                if (tor.status.value != TorStatus.Ready) tor.start()
+                val proxy = tor.proxy() ?: return@runCatching
+                java.net.Socket(proxy).use {
+                    it.connect(java.net.InetSocketAddress.createUnresolved(onion.host, onion.port), 90_000)
+                }
+                logi("onion warmed")
+            }.onFailure {
+                // Tried again on a later call rather than in a half hour.
+                onionWarmedMs = 0L
+                logw("onion warm-up failed: ${it.javaClass.simpleName}: ${it.message}")
+            }
+        }
     }
 
     @Volatile private var lastLanProbeMs = 0L
@@ -283,10 +341,13 @@ class Transport(
                 val b = build().url(url).header("Accept", "application/json")
                 if (key != null) b.header("Authorization", "Bearer $key")
                 logi("${a.kind} $path")
+                val startedMs = android.os.SystemClock.elapsedRealtime()
                 clientFor(a.kind, timeoutSeconds).newCall(b.build()).execute().use { resp ->
                     val text = resp.body?.string().orEmpty()
+                    logi("${a.kind} $path done in ${android.os.SystemClock.elapsedRealtime() - startedMs} ms")
                     lastGoodUrl = a.url
                     _route.value = a.route
+                    if (a.route == Route.Lan) warmOnion()
                     if (!resp.isSuccessful) {
                         throw apiError(resp.code, text)
                     }
@@ -297,6 +358,13 @@ class Transport(
             } catch (e: Exception) {
                 logw("${a.kind} $path failed: ${e.javaClass.simpleName}: ${e.message}")
                 if (a.route == Route.Tor) tor.checkHealth()
+                // A home address failed: if the onion is next, have Tor
+                // starting while any other home address is tried.
+                if (a.route == Route.Lan && tor.status.value == TorStatus.Stopped &&
+                    list.any { it.route == Route.Tor }
+                ) {
+                    startTorInBackground()
+                }
                 // Only the onion authenticates the far end on its own: a
                 // certificate it does not chain to the pinned root is the
                 // node's. A LAN address that answers with another certificate
@@ -346,5 +414,6 @@ class Transport(
     private companion object {
         const val TAG = "LfNet"
         const val LAN_RECHECK_MS = 60_000L
+        const val ONION_REWARM_MS = 30 * 60_000L
     }
 }

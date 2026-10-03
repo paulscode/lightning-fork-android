@@ -46,7 +46,7 @@ class ArtiTorController(
                     return
                 }
                 val stateDir = File(appContext.filesDir, "arti/state").apply { mkdirs() }.absolutePath
-                val cacheDir = File(appContext.cacheDir, "arti/cache").apply { mkdirs() }.absolutePath
+                val cacheDir = artiCacheDir().absolutePath
                 val p = withContext(Dispatchers.IO) { ArtiNative.nativeStart(stateDir, cacheDir) }
                 if (p <= 0) {
                     _status.value = TorStatus.Failed
@@ -68,6 +68,21 @@ class ArtiTorController(
                 _status.value = TorStatus.Failed
             }
         }
+    }
+
+    // Tor's directory (consensus and relay descriptors) where the system does
+    // not clear it to free space: without it a start downloads it all again,
+    // which took 35 s against 7 s with it. Moved once from where it used to
+    // be, so nobody pays that again for the move.
+    private fun artiCacheDir(): File {
+        val dir = File(appContext.noBackupFilesDir, "arti/cache")
+        val old = File(appContext.cacheDir, "arti/cache")
+        if (!dir.exists() && old.isDirectory) {
+            dir.parentFile?.mkdirs()
+            if (!old.renameTo(dir)) old.deleteRecursively()
+        }
+        dir.mkdirs()
+        return dir
     }
 
     // The proxy can fail after bootstrap (its listener died); the native side

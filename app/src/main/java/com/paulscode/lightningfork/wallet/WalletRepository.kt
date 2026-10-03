@@ -16,6 +16,8 @@ import com.paulscode.lightningfork.net.WalletResponse
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -80,6 +82,7 @@ class WalletRepository(
     private var certFailures = 0
     private val refreshing = Mutex()
     private var lastPriceMs = 0L
+    private var failuresInRow = 0
     private var lastNodeMs = 0L
 
     private val _foreground = MutableStateFlow(false)
@@ -91,16 +94,26 @@ class WalletRepository(
         _foreground.value = foreground
         if (foreground) {
             if (poller?.isActive == true) return
+            transport.warmUp()
             poller = scope.launch {
                 while (isActive) {
                     val ok = refresh()
-                    // Back off while the node can't be reached; Tor is slower.
-                    val wait = when {
-                        !ok -> 20_000L
-                        transport.route.value == Route.Tor -> 20_000L
-                        else -> 10_000L
+                    failuresInRow = if (ok) 0 else failuresInRow + 1
+                    when {
+                        // Tor is still starting: try again the moment it is
+                        // up, rather than a fixed while later.
+                        !ok && tor.status.value == TorStatus.Bootstrapping ->
+                            withTimeoutOrNull(120_000) {
+                                tor.status.first { it != TorStatus.Bootstrapping }
+                            }
+                        // A first failure is often the first onion
+                        // connection taking its time: try again soon.
+                        !ok && failuresInRow == 1 -> delay(3_000)
+                        // Back off while the node can't be reached; Tor is slower.
+                        !ok -> delay(20_000)
+                        transport.route.value == Route.Tor -> delay(20_000)
+                        else -> delay(10_000)
                     }
-                    delay(wait)
                 }
             }
         } else {
@@ -179,12 +192,23 @@ class WalletRepository(
                 false
             } catch (e: Exception) {
                 if (gen != generation) return@withLock false
-                val message = when (tor.status.value) {
-                    TorStatus.Failed -> "Can't reach your node, and Tor could not start."
-                    TorStatus.Bootstrapping -> "Connecting to your node over Tor…"
+                // Tor starting, or its first connection to the node still
+                // being made, is connecting, not failing: said as such, for
+                // the first tries.
+                val stillConnecting = tor.status.value == TorStatus.Bootstrapping ||
+                    (tor.status.value == TorStatus.Ready && failuresInRow < 2 && transport.route.value != Route.Lan)
+                val message = when {
+                    tor.status.value == TorStatus.Failed -> "Can't reach your node, and Tor could not start."
+                    stillConnecting -> "Connecting to your node over Tor…"
                     else -> "Can't reach your node right now."
                 }
-                _state.update { it.copy(refreshing = false, error = message, connection = Connection.Offline) }
+                _state.update {
+                    it.copy(
+                        refreshing = false,
+                        error = message,
+                        connection = if (stillConnecting) Connection.Connecting else Connection.Offline,
+                    )
+                }
                 false
             }
         }

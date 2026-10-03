@@ -88,13 +88,13 @@ data class SendUi(
         }
 
     /**
-     * The amount to send, in sats, if one is known. For a Bitcoin invoice,
-     * the most it can cost here.
+     * The amount to send, in sats, if one is known. For a SHA256 invoice,
+     * the most it can cost here: the service's ceiling and the routing to it.
      */
     val amountSat: Long?
         get() {
             val t = active ?: return null
-            if (t.isBitcoinInvoice) return t.estimate?.maxIncomingSat
+            if (t.isBitcoinInvoice) return t.estimate?.let { it.maxIncomingSat + it.routingFeeLimitSat }
             if (onchain && sendAll) return estimate?.amountSat
             return if (t.amountEditable) Format.parseAmount(amountText, unit)?.takeIf { it > 0 } else t.amountSat
         }

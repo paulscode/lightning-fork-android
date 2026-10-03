@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Schedule
@@ -444,13 +445,14 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
         if (est != null) {
             Text("At most", style = MaterialTheme.typography.labelMedium, color = TextMuted)
             Spacer(Modifier.height(6.dp))
-            AnimatedAmount(est.maxIncomingSat, ui.unit, style = MaterialTheme.typography.displaySmall, color = TextPrimary)
-            Format.fiat(est.maxIncomingSat, wallet.usdPrice)?.let {
+            val most = est.maxIncomingSat + est.routingFeeLimitSat
+            AnimatedAmount(most, ui.unit, style = MaterialTheme.typography.displaySmall, color = TextPrimary)
+            Format.fiat(most, wallet.usdPrice)?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = TextMuted)
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                "Expected ${Format.amountWithUnit(est.incomingSat, ui.unit)}, if the price holds until it is paid",
+                "Expected ${Format.amountWithUnit(est.incomingSat, ui.unit)} plus routing, if the price holds until it is paid",
                 style = MaterialTheme.typography.bodySmall,
                 color = TextMuted,
             )
@@ -505,7 +507,7 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
     }
     if (est != null) {
         Text(
-            "Routing to the service costs up to ${Format.amountWithUnit(est.routingFeeLimitSat, ui.unit)} more.",
+            "Includes up to ${Format.amountWithUnit(est.routingFeeLimitSat, ui.unit)} for routing to the service.",
             style = MaterialTheme.typography.bodySmall,
             color = TextMuted,
             modifier = Modifier.padding(top = 10.dp, start = 4.dp),
@@ -694,8 +696,11 @@ private fun DoneStep(ui: SendUi, onClose: () -> Unit) {
 private fun FailedStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         CenteredStatus(Modifier.weight(1f)) {
+            // Refused as paid already: not a failure, and possibly the
+            // user's own earlier payment.
+            val alreadyPaid = !ui.uncertain && !ui.retryable
             val tint = when {
-                ui.onItsWay -> Accent
+                ui.onItsWay || alreadyPaid -> Accent
                 ui.uncertain -> Warning
                 else -> Danger
             }
@@ -704,7 +709,11 @@ private fun FailedStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    if (ui.onItsWay) Icons.Rounded.Schedule else Icons.Rounded.ErrorOutline,
+                    when {
+                        ui.onItsWay -> Icons.Rounded.Schedule
+                        alreadyPaid -> Icons.Rounded.Info
+                        else -> Icons.Rounded.ErrorOutline
+                    },
                     contentDescription = null,
                     tint = tint,
                     modifier = Modifier.size(48.dp),
@@ -715,6 +724,7 @@ private fun FailedStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit) {
                 when {
                     ui.onItsWay -> "On its way"
                     ui.uncertain -> "Not sure it went through"
+                    alreadyPaid -> "Already paid"
                     else -> "Payment didn't go through"
                 },
                 style = MaterialTheme.typography.headlineSmall,

@@ -82,7 +82,7 @@ object SendRules {
      * and is asked about again, calmly.
      */
     fun onItsWay(e: ApiException, bitcoinInvoice: Boolean): Boolean =
-        bitcoinInvoice && e.uncertain && e.status == 504
+        bitcoinInvoice && e.uncertain && e.code == ON_ITS_WAY
 
     /**
      * The node's own refusal, as opposed to an error on the way. 503 is the
@@ -97,6 +97,9 @@ object SendRules {
 
     /** The service asks more than the user agreed to: show the new price. */
     const val PRICE_CHANGED = "price_changed"
+
+    /** The node knows the payment is under way, not merely unsure. */
+    const val ON_ITS_WAY = "on_its_way"
 
     /** Paid already, by this node or not: nothing to try again. */
     const val ALREADY_PAID = "already_paid"

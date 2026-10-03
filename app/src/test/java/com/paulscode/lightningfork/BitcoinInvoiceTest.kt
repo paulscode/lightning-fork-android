@@ -103,8 +103,11 @@ class BitcoinInvoiceTest {
         val s = SendUi(target = payable)
         assertTrue(s.bitcoinInvoice)
         assertFalse(s.onchain)
-        assertEquals(31_074L, s.amountSat)
+        // The service's ceiling and the routing to it: what it can cost here.
+        assertEquals(31_074L + 310L, s.amountSat)
         assertNull(s.bitcoinInvoiceBlocker)
+        // The node is held to the service's own ceiling.
+        assertEquals(31_074L, SendRules.pendingFor(s, "req-12345678", 5)!!.bitcoinInvoice!!.maxIncomingSat)
     }
 
     @Test fun not_payable_cant_be_sent() {
@@ -148,11 +151,16 @@ class BitcoinInvoiceTest {
     }
 
     @Test fun on_its_way_is_asked_about_again() {
-        val waiting = ApiException(504, "Your payment is on its way and the SHA256 invoice is being paid.", uncertain = true)
+        val waiting = ApiException(504, "Your payment is on its way and the SHA256 invoice is being paid.", code = "on_its_way", uncertain = true)
         assertFalse(SendRules.settles(waiting, again = false, bitcoinInvoice = true))
         assertFalse(SendRules.settles(waiting, again = true, bitcoinInvoice = true))
         assertTrue(SendRules.onItsWay(waiting, bitcoinInvoice = true))
         assertFalse(SendRules.onItsWay(waiting, bitcoinInvoice = false))
+        // Merely unsure (the dashboard restarted, the call was cut off) is
+        // not shown as under way.
+        val unsure = ApiException(504, "Your node can't say yet whether this went through.", uncertain = true)
+        assertFalse(SendRules.settles(unsure, again = true, bitcoinInvoice = true))
+        assertFalse(SendRules.onItsWay(unsure, bitcoinInvoice = true))
     }
 
     @Test fun a_refusal_with_a_code_settles_it_even_on_a_reask() {

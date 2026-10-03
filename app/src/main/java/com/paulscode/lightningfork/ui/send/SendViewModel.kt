@@ -9,8 +9,6 @@ import com.paulscode.lightningfork.net.FeesResponse
 import com.paulscode.lightningfork.net.NodeApi
 import com.paulscode.lightningfork.net.OnchainEstimate
 import com.paulscode.lightningfork.net.OnchainEstimateRequest
-import com.paulscode.lightningfork.net.OnchainSendRequest
-import com.paulscode.lightningfork.net.PayRequest
 import com.paulscode.lightningfork.net.PaymentTarget
 import com.paulscode.lightningfork.net.PendingSend
 import com.paulscode.lightningfork.util.Format
@@ -32,6 +30,8 @@ data class SendResult(
     val feeSat: Long,
     /** The preimage of a Lightning payment, the txid of an on-chain one. */
     val reference: String,
+    /** A Bitcoin invoice paid: its amount, in Bitcoin. */
+    val bitcoinAmountSat: Long? = null,
 )
 
 data class SendUi(
@@ -56,6 +56,16 @@ data class SendUi(
     val error: String? = null,
     /** The failure left it unknown whether the payment went through. */
     val uncertain: Boolean = false,
+    /** Uncertain, as a Bitcoin invoice the service is still paying. */
+    val onItsWay: Boolean = false,
+    /** Whether trying again makes sense after a refusal. */
+    val retryable: Boolean = true,
+    /** What is being sent, or asked about, is a Bitcoin invoice. */
+    val sendingBitcoinInvoice: Boolean = false,
+    /** A Bitcoin invoice's price is being read anew. */
+    val repricing: Boolean = false,
+    /** Why the review is shown again, such as a new price. */
+    val reviewNotice: String? = null,
 ) {
     /** What will actually be paid: the request, or its on-chain alternative. */
     val active: PaymentTarget?
@@ -63,10 +73,28 @@ data class SendUi(
 
     val onchain: Boolean get() = active?.kind == "onchain"
 
-    /** The amount to send, in sats, if one is known. */
+    val bitcoinInvoice: Boolean get() = active?.isBitcoinInvoice == true
+
+    /**
+     * Why a Bitcoin invoice can't be paid, by the node's own word; null when
+     * it can, or this is not one.
+     */
+    val bitcoinInvoiceBlocker: String?
+        get() {
+            val t = active ?: return null
+            if (!t.isBitcoinInvoice) return null
+            if (!t.payable || t.estimate == null) return "Can't pay this now"
+            return null
+        }
+
+    /**
+     * The amount to send, in sats, if one is known. For a Bitcoin invoice,
+     * the most it can cost here.
+     */
     val amountSat: Long?
         get() {
             val t = active ?: return null
+            if (t.isBitcoinInvoice) return t.estimate?.maxIncomingSat
             if (onchain && sendAll) return estimate?.amountSat
             return if (t.amountEditable) Format.parseAmount(amountText, unit)?.takeIf { it > 0 } else t.amountSat
         }
@@ -99,7 +127,7 @@ class SendViewModel(
         val pending = if (resume) settings.pendingSend else null
         if (pending != null) {
             // A send whose outcome the app never heard: ask about it now.
-            requestId = pending.onchain?.requestId ?: pending.pay?.requestId ?: requestId
+            requestId = pending.onchain?.requestId ?: pending.pay?.requestId ?: pending.bitcoinInvoice?.requestId ?: requestId
             execute(pending, again = true)
         } else if (!prefill.isNullOrBlank()) {
             submit(prefill)
@@ -126,7 +154,7 @@ class SendViewModel(
         if (input.isEmpty() || _ui.value.decoding) return
         estimateJob?.cancel()
         estimateJob = null
-        _ui.update { it.copy(input = input, decoding = true, inputError = null, estimate = null, estimating = false, estimateError = null) }
+        _ui.update { it.copy(input = input, decoding = true, inputError = null, estimate = null, estimating = false, estimateError = null, reviewNotice = null) }
         viewModelScope.launch {
             try {
                 val target = api.decode(input)
@@ -173,7 +201,7 @@ class SendViewModel(
     fun backToInput() {
         estimateJob?.cancel()
         estimateJob = null
-        _ui.update { it.copy(step = SendStep.Input, target = null, error = null, estimate = null, estimating = false, estimateError = null) }
+        _ui.update { it.copy(step = SendStep.Input, target = null, error = null, estimate = null, estimating = false, estimateError = null, reviewNotice = null) }
     }
 
     fun choosePayOnchain(onchain: Boolean) {
@@ -272,6 +300,7 @@ class SendViewModel(
         if (t.expired || (expiresAt != null && expiresAt > 0 && expiresAt <= System.currentTimeMillis() / 1000)) {
             return "This request has expired"
         }
+        s.bitcoinInvoiceBlocker?.let { return it }
         if (s.onchain && s.estimateError != null) return "Can't send this yet"
         val amount = s.amountSat
         if (amount == null || amount <= 0) return if (s.onchain && s.sendAll) "Working out the fee…" else "Enter an amount"
@@ -290,34 +319,8 @@ class SendViewModel(
         val s = _ui.value
         // One send per tap: a second tap while it runs does nothing.
         if (s.step != SendStep.Review) return
-        val t = s.active ?: return
         if (blocker(s) != null) return
-        val amount = s.amountSat ?: return
-        val pending = if (t.kind == "onchain") {
-            PendingSend(
-                onchain = OnchainSendRequest(
-                    address = t.address ?: t.request,
-                    amountSat = if (s.sendAll) null else amount,
-                    sendAll = s.sendAll,
-                    satPerVbyte = s.satPerVbyte ?: return,
-                    requestId = requestId,
-                ),
-                amountSat = amount,
-                feeSat = s.estimate?.feeSat ?: 0,
-                startedAtMs = System.currentTimeMillis(),
-            )
-        } else {
-            PendingSend(
-                pay = PayRequest(
-                    request = t.request,
-                    amountSat = if (t.amountEditable) amount else null,
-                    payerNote = s.payerNote.takeIf { it.isNotBlank() && t.kind == "offer" },
-                    requestId = requestId,
-                ),
-                amountSat = amount,
-                startedAtMs = System.currentTimeMillis(),
-            )
-        }
+        val pending = SendRules.pendingFor(s, requestId, System.currentTimeMillis()) ?: return
         execute(pending)
     }
 
@@ -329,12 +332,38 @@ class SendViewModel(
     private fun execute(pending: PendingSend, again: Boolean = false) {
         lastSent = pending
         settings.pendingSend = pending
-        _ui.update { it.copy(step = SendStep.Sending, error = null, uncertain = false) }
+        val bitcoin = pending.bitcoinInvoice != null
+        _ui.update {
+            it.copy(
+                step = SendStep.Sending,
+                error = null,
+                uncertain = false,
+                onItsWay = false,
+                retryable = true,
+                sendingBitcoinInvoice = bitcoin,
+                repricing = false,
+                reviewNotice = null,
+            )
+        }
         viewModelScope.launch {
             try {
+                val bitcoinRequest = SendRules.bitcoinInvoiceRequest(pending, again)
                 val result = if (pending.onchain != null) {
                     val res = api.sendOnchain(if (again) pending.onchain.copy(resume = true) else pending.onchain)
                     SendResult(false, pending.amountSat, pending.feeSat, res.txid)
+                } else if (bitcoinRequest != null) {
+                    val res = api.payBitcoinInvoice(bitcoinRequest)
+                    when (res.status) {
+                        "succeeded" -> SendResult(
+                            true,
+                            res.amountSat.takeIf { it > 0 } ?: pending.amountSat,
+                            res.feeSat,
+                            res.preimage,
+                            bitcoinAmountSat = res.bitcoinInvoice?.amountSat?.takeIf { it > 0 } ?: pending.bitcoinAmountSat,
+                        )
+                        "failed" -> throw ApiException(400, "The payment failed.")
+                        else -> throw java.io.IOException("payment ${res.status}")
+                    }
                 } else {
                     val res = api.pay(if (again) pending.pay!!.copy(resume = true) else pending.pay!!)
                     when (res.status) {
@@ -352,17 +381,32 @@ class SendViewModel(
                 // Asking again, only the node's verdict on the payment settles
                 // it: an error on the way (5xx, a removed key, a reused id)
                 // leaves it as unknown as before, under the same id.
-                val settled = if (again) definiteOnRecheck(e.status) else definite(e.status)
-                if (settled) {
+                if (SendRules.settles(e, again, bitcoin)) {
                     // The node said no: nothing moved, and a new attempt is a
                     // new payment.
                     settings.pendingSend = null
                     requestId = NodeApi.newRequestId()
-                    _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = false) }
+                    if (bitcoin && e.code == SendRules.PRICE_CHANGED) {
+                        // The service asks more than was agreed: the new
+                        // price, for the user to agree to or not.
+                        reprice(pending.bitcoinInvoice!!.request, e.message)
+                        return@launch
+                    }
+                    _ui.update {
+                        it.copy(
+                            step = SendStep.Failed,
+                            error = e.message,
+                            uncertain = false,
+                            retryable = !(bitcoin && e.code == SendRules.ALREADY_PAID),
+                        )
+                    }
                 } else {
                     // A cut-off call or a server error: the money may have
-                    // moved. Asking again with the same id is safe.
-                    _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = true) }
+                    // moved. Asking again with the same id is safe. A Bitcoin
+                    // invoice may simply still be being paid.
+                    _ui.update {
+                        it.copy(step = SendStep.Failed, error = e.message, uncertain = true, onItsWay = SendRules.onItsWay(e, bitcoin))
+                    }
                 }
             } catch (e: com.paulscode.lightningfork.net.KeyUnavailableException) {
                 // Nothing was sent now; on a re-ask, the first may have been.
@@ -385,23 +429,56 @@ class SendViewModel(
     }
 
     /**
-     * The node's own refusal, as opposed to an error on the way. 503 is the
-     * node saying LND is not answering, before anything was sent; 502 and 504
-     * are a cut-off.
+     * Reads a Bitcoin invoice's price anew and shows it for the user to agree
+     * to again, with [notice] saying why. Nothing is paid until they do.
      */
-    private fun definite(status: Int) =
-        (status in 400..499 && status != 408 && status != 425 && status != 429) || status == 503
+    private fun reprice(request: String, notice: String?) {
+        _ui.update { it.copy(step = SendStep.Sending, repricing = true, error = null, uncertain = false, onItsWay = false) }
+        viewModelScope.launch {
+            try {
+                val target = api.decode(request)
+                if (!target.isBitcoinInvoice) throw ApiException(400, target.message ?: "This can't be paid from this wallet.")
+                requestId = NodeApi.newRequestId()
+                _ui.update {
+                    it.copy(
+                        step = SendStep.Review,
+                        repricing = false,
+                        target = target,
+                        payOnchain = false,
+                        error = null,
+                        reviewNotice = notice,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val why = (e as? ApiException)?.message ?: "Can't reach your node to get the new price."
+                _ui.update {
+                    it.copy(
+                        step = SendStep.Failed,
+                        repricing = false,
+                        error = listOfNotNull(notice, why).joinToString(" "),
+                        uncertain = false,
+                    )
+                }
+            }
+        }
+    }
 
-    private fun definiteOnRecheck(status: Int) =
-        status in 400..499 && status !in setOf(401, 403, 408, 422, 425, 429)
-
-    /** After a failure: an uncertain send is asked about again, unchanged; a refused one is tried anew. */
+    /**
+     * After a failure: an uncertain send is asked about again, unchanged; a
+     * refused one is tried anew. A refused Bitcoin invoice first gets its
+     * price again, since it may have moved.
+     */
     fun retry() {
         val s = _ui.value
         if (s.step != SendStep.Failed) return
         val sent = lastSent
+        val bitcoinRequest = sent?.bitcoinInvoice?.request ?: s.target?.takeIf { it.isBitcoinInvoice }?.request
         if (s.uncertain && sent != null) {
             execute(sent, again = true)
+        } else if (bitcoinRequest != null) {
+            if (s.retryable) reprice(bitcoinRequest, null)
         } else if (s.target != null) {
             _ui.update { it.copy(step = SendStep.Review, error = null) }
             send()
@@ -413,5 +490,5 @@ class SendViewModel(
         settings.pendingSend = null
     }
 
-    fun backToReview() = _ui.update { it.copy(step = SendStep.Review, error = null) }
+    fun backToReview() = _ui.update { it.copy(step = SendStep.Review, error = null, reviewNotice = null) }
 }

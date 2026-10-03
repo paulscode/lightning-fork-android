@@ -37,6 +37,14 @@ object Format {
         return "≈ $" + f.format(usd)
     }
 
+    /** A rate to a few significant digits, plainly: "0.0049". */
+    fun rate(value: Double): String =
+        BigDecimal(value.toString()).round(java.math.MathContext(6)).stripTrailingZeros().toPlainString()
+
+    /** A fraction as a percentage, to two places at most: 0.0638 is "6.38%". */
+    fun percent(fraction: Double): String =
+        BigDecimal(fraction * 100).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString() + "%"
+
     /** Parse what the user typed in [unit] into sats; null when it isn't an amount. */
     fun parseAmount(text: String, unit: AmountUnit): Long? {
         // Commas are grouping only in sats; in BTC a comma is not an amount

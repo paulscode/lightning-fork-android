@@ -10,6 +10,11 @@ phone holds only a revocable key to the node's dashboard.
   alternative), a BOLT 11 invoice, or a BOLT 12 offer. Scan it or paste it.
   On-chain sends offer the Low, Medium and High rates of the Mempool app the
   dashboard uses, or the node's own estimate.
+- **Pay a Bitcoin invoice** (a Lightning invoice of the original Bitcoin
+  chain) through the service set up in the dashboard's settings, under
+  **Paying Bitcoin invoices**: the app shows the most it can cost, the
+  service's fee and how the price compares with the market, and the proof of
+  payment once it is paid.
 - **Receive** with an invoice (shown as a QR code and watched until it is
   paid) or the wallet's on-chain address.
 - **Activity** lists recent payments in and out.

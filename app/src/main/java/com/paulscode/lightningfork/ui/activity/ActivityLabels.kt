@@ -12,7 +12,7 @@ object ActivityLabels {
     fun title(item: ActivityItem): String {
         val incoming = item.direction == "in"
         // A Bitcoin invoice reads as one; what it was for is in its details.
-        if (item.bitcoinInvoice != null) return "Bitcoin invoice"
+        if (item.bitcoinInvoice != null) return "SHA256 invoice"
         return item.description.ifBlank {
             when {
                 incoming && item.kind == "onchain" -> "Received on-chain"

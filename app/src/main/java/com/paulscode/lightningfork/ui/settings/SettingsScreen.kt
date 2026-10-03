@@ -90,7 +90,7 @@ fun SettingsScreen(
                     InfoRow("Version", node.version.substringBefore(" "))
                 }
                 Text(
-                    "Paying Bitcoin invoices is set up in the dashboard's settings.",
+                    "Paying SHA256 invoices is set up in the dashboard's settings.",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextMuted,
                     modifier = Modifier.padding(top = 6.dp),

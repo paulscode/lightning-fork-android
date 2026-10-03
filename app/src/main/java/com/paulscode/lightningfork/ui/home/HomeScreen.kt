@@ -430,7 +430,7 @@ private fun PendingSendCard(p: com.paulscode.lightningfork.net.PendingSend, unit
             Text("A payment didn't finish", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
             Text(
                 if (p.bitcoinInvoice != null) {
-                    "A Bitcoin invoice, for at most ${Format.amountWithUnit(p.amountSat, unit)}. Check whether it went through."
+                    "A SHA256 invoice, for at most ${Format.amountWithUnit(p.amountSat, unit)}. Check whether it went through."
                 } else {
                     "${Format.amountWithUnit(p.amountSat, unit)} ${if (p.lightning) "over Lightning" else "on-chain"}. Check whether it went through."
                 },

@@ -29,7 +29,7 @@ class BitcoinInvoiceTest {
 
     private val notSetUp = ApiJson.decodeFromString(
         PaymentTarget.serializer(),
-        """{"kind":"bitcoin-invoice","request":"lnbc1500n1pexample","amountSat":150,"amountEditable":false,"description":"","paymentHash":"9f","createdAt":1790912000,"expiresAt":1790915600,"expired":false,"ours":false,"estimate":null,"message":"Paying Bitcoin invoices is not set up. Set it up in the dashboard's settings.","payable":false}""",
+        """{"kind":"bitcoin-invoice","request":"lnbc1500n1pexample","amountSat":150,"amountEditable":false,"description":"","paymentHash":"9f","createdAt":1790912000,"expiresAt":1790915600,"expired":false,"ours":false,"estimate":null,"message":"Paying SHA256 invoices is not set up. Set it up in the dashboard's settings.","payable":false}""",
     )
 
     // The wire.
@@ -53,7 +53,7 @@ class BitcoinInvoiceTest {
     @Test fun one_that_cant_be_paid_says_why() {
         assertFalse(notSetUp.payable)
         assertNull(notSetUp.estimate)
-        assertTrue(notSetUp.message!!.startsWith("Paying Bitcoin invoices is not set up"))
+        assertTrue(notSetUp.message!!.startsWith("Paying SHA256 invoices is not set up"))
         val noRate = ApiJson.decodeFromString(
             PaymentTarget.serializer(),
             """{"kind":"bitcoin-invoice","request":"lnbc1","amountSat":150,"amountEditable":false,"payable":false,"message":"No market rate.","estimate":{"incomingSat":30919,"feeSat":307,"maxIncomingSat":31074,"routingFeeLimitSat":310,"rate":0.0049,"spread":0.01,"serviceLabel":"","open":true},"referenceError":"No market rate."}""",
@@ -148,7 +148,7 @@ class BitcoinInvoiceTest {
     }
 
     @Test fun on_its_way_is_asked_about_again() {
-        val waiting = ApiException(504, "Your payment is on its way and the Bitcoin invoice is being paid.", uncertain = true)
+        val waiting = ApiException(504, "Your payment is on its way and the SHA256 invoice is being paid.", uncertain = true)
         assertFalse(SendRules.settles(waiting, again = false, bitcoinInvoice = true))
         assertFalse(SendRules.settles(waiting, again = true, bitcoinInvoice = true))
         assertTrue(SendRules.onItsWay(waiting, bitcoinInvoice = true))
@@ -191,7 +191,7 @@ class BitcoinInvoiceTest {
 
     @Test fun activity_shows_bitcoin_invoices_as_such() {
         val (paid, pending, returned, plain) = activity.items
-        assertEquals("Bitcoin invoice", ActivityLabels.title(paid))
+        assertEquals("SHA256 invoice", ActivityLabels.title(paid))
         assertTrue(ActivityLabels.isBitcoinInvoice(paid))
         assertEquals(150L, paid.bitcoinInvoice!!.amountSat)
         assertEquals(30_950L, paid.amountSat)

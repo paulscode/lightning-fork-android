@@ -409,7 +409,7 @@ private fun RecipientCard(t: PaymentTarget) {
             }
             if (t.isBitcoinInvoice) {
                 Spacer(Modifier.width(10.dp))
-                Pill("Bitcoin invoice", color = Warning)
+                Pill("SHA256 invoice", color = Warning)
             }
         }
         if (t.description.isNotBlank()) {
@@ -455,7 +455,7 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
                 color = TextMuted,
             )
         } else {
-            Text("Amount on Bitcoin", style = MaterialTheme.typography.labelMedium, color = TextMuted)
+            Text("Amount on the SHA256 chain", style = MaterialTheme.typography.labelMedium, color = TextMuted)
             Spacer(Modifier.height(6.dp))
             val amount = t.amountSat
             if (amount != null) {
@@ -467,7 +467,7 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
     }
     Spacer(Modifier.height(18.dp))
     AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
-        t.amountSat?.let { InfoRow("Pays on Bitcoin", Format.amountWithUnit(it, ui.unit)) }
+        t.amountSat?.let { InfoRow("Pays on the SHA256 chain", Format.amountWithUnit(it, ui.unit)) }
         est?.let { InfoRow("Service fee", "${Format.amountWithUnit(it.feeSat, ui.unit)}, included") }
         t.expiresAt?.let { ExpiryRow(it) }
         Row(
@@ -484,8 +484,8 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
         }
         AnimatedVisibility(details) {
             Column {
-                t.amountSat?.let { InfoRow("Bitcoin amount", Format.amountWithUnit(it, ui.unit)) }
-                if (est != null && est.rate > 0) InfoRow("Rate", "${Format.rate(est.rate)} BTC per BTCB2")
+                t.amountSat?.let { InfoRow("SHA256 amount", Format.amountWithUnit(it, ui.unit)) }
+                if (est != null && est.rate > 0) InfoRow("Rate", "${Format.rate(est.rate)} BTC (SHA256) per BTCB2")
                 val ref = t.reference
                 if (ref != null) {
                     InfoRow(
@@ -519,7 +519,7 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
     )
     if (!t.payable || est == null) {
         Notice(
-            t.message ?: "This Bitcoin invoice can't be paid right now.",
+            t.message ?: "This SHA256 invoice can't be paid right now.",
             kind = NoticeKind.Warning,
             modifier = Modifier.padding(top = 14.dp),
         )
@@ -616,8 +616,8 @@ private fun SendingStep(ui: SendUi) {
         Spacer(Modifier.height(8.dp))
         Text(
             when {
-                ui.repricing -> "Your node is asking the service what this Bitcoin invoice costs now."
-                ui.sendingBitcoinInvoice -> "Your node pays the service, which pays the Bitcoin invoice. This can take a minute or two."
+                ui.repricing -> "Your node is asking the service what this SHA256 invoice costs now."
+                ui.sendingBitcoinInvoice -> "Your node pays the service, which pays the SHA256 invoice. This can take a minute or two."
                 ui.onchain -> "Your node is signing and broadcasting the transaction."
                 else -> "Your node is finding a route to the recipient."
             },
@@ -651,7 +651,7 @@ private fun DoneStep(ui: SendUi, onClose: () -> Unit) {
             val bitcoinAmount = r.bitcoinAmountSat
             Text(
                 when {
-                    bitcoinAmount != null -> "Bitcoin invoice paid"
+                    bitcoinAmount != null -> "SHA256 invoice paid"
                     r.lightning -> "Sent"
                     else -> "Sent · confirming"
                 },
@@ -661,7 +661,7 @@ private fun DoneStep(ui: SendUi, onClose: () -> Unit) {
             Spacer(Modifier.height(10.dp))
             AnimatedAmount(bitcoinAmount ?: r.amountSat, ui.unit, style = MaterialTheme.typography.displaySmall, color = TextPrimary)
             if (bitcoinAmount != null) {
-                Text("on Bitcoin", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                Text("on the SHA256 chain", style = MaterialTheme.typography.bodySmall, color = TextMuted)
             }
             Spacer(Modifier.height(24.dp))
             AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
@@ -727,7 +727,7 @@ private fun FailedStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit) {
                 Spacer(Modifier.height(10.dp))
                 Text(
                     if (ui.onItsWay) {
-                        "The service pays the Bitcoin invoice first, which can take a while. Check again asks your node about this same payment and never pays it twice."
+                        "The service pays the SHA256 invoice first, which can take a while. Check again asks your node about this same payment and never pays it twice."
                     } else {
                         "Check again asks your node about this same payment and never pays it twice. Your activity shows it too once it went through."
                     },

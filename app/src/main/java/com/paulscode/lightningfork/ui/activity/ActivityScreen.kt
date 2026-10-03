@@ -182,7 +182,7 @@ private fun ActivityRow(item: ActivityItem, unit: AmountUnit) {
                     },
                 )
                 if (bitcoin != null) {
-                    Text("${Format.amountWithUnit(bitcoin.amountSat, unit)} on Bitcoin", style = MaterialTheme.typography.bodySmall, color = TextFaint)
+                    Text("${Format.amountWithUnit(bitcoin.amountSat, unit)} on the SHA256 chain", style = MaterialTheme.typography.bodySmall, color = TextFaint)
                 } else if (!incoming && item.feeSat > 0) {
                     Text("fee ${Format.amountWithUnit(item.feeSat, unit)}", style = MaterialTheme.typography.bodySmall, color = TextFaint)
                 }
@@ -203,7 +203,7 @@ private fun BitcoinInvoiceDetails(item: ActivityItem, unit: AmountUnit) {
     Column(Modifier.fillMaxWidth().padding(start = 54.dp, bottom = 12.dp)) {
         val about = bitcoin.description.ifBlank { item.description }
         if (about.isNotBlank()) InfoRow("Description", about)
-        InfoRow("Paid on Bitcoin", Format.amountWithUnit(bitcoin.amountSat, unit))
+        InfoRow("Paid on the SHA256 chain", Format.amountWithUnit(bitcoin.amountSat, unit))
         InfoRow("Cost", Format.amountWithUnit(item.amountSat, unit))
         if (item.feeSat > 0) InfoRow("Routing fee", Format.amountWithUnit(item.feeSat, unit))
         InfoRow(

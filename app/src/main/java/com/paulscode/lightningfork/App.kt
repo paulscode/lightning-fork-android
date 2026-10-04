@@ -8,6 +8,8 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Units, times and estimates in the phone's language (util/Format).
+        com.paulscode.lightningfork.util.Format.res = resources
         container = AppContainer(this)
     }
 }

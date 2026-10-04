@@ -7,6 +7,45 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class FormatTest {
+    // Written as in the US unless a test says otherwise; words are English
+    // without the app's resources.
+    @org.junit.Before fun us() {
+        Format.localeOverride = java.util.Locale.US
+    }
+
+    @org.junit.After fun reset() {
+        Format.localeOverride = null
+    }
+
+    @Test fun numbers_follow_the_phones_language() {
+        Format.localeOverride = java.util.Locale.GERMANY
+        assertEquals("1.234.567", Format.sats(1_234_567))
+        assertEquals("0,00001234", Format.btc(1234))
+        assertEquals("1,00000000 BTC", Format.amountWithUnit(100_000_000, AmountUnit.Btc))
+        // Typed the way the phone writes them, or with a point in BTC.
+        assertEquals(2500L, Format.parseAmount("2.500", AmountUnit.Sats))
+        assertEquals(150_000_000L, Format.parseAmount("1,5", AmountUnit.Btc))
+        assertEquals(150_000_000L, Format.parseAmount("1.5", AmountUnit.Btc))
+        assertEquals(1234L, Format.parseAmount(Format.editable(1234, AmountUnit.Btc), AmountUnit.Btc))
+        assertNull(Format.parseAmount("1,5", AmountUnit.Sats))
+        assertEquals("204,08", Format.inverseRate(0.0049))
+        assertEquals("0,0049", Format.rate(0.0049))
+        assertEquals("≈ 46,00\u00a0€", Format.fiat(100_000, 46_000.0, "EUR"))
+        Format.localeOverride = java.util.Locale.FRANCE
+        // French groups with a narrow no-break space; typed with a space.
+        assertEquals(2500L, Format.parseAmount("2 500", AmountUnit.Sats))
+        assertEquals(2500L, Format.parseAmount(Format.sats(2500), AmountUnit.Sats))
+    }
+
+    @Test fun editable_amounts_read_back() {
+        for (sats in listOf(0L, 1L, 1234L, 150_000_000L)) {
+            assertEquals(sats, Format.parseAmount(Format.editable(sats, AmountUnit.Sats), AmountUnit.Sats))
+            assertEquals(sats, Format.parseAmount(Format.editable(sats, AmountUnit.Btc), AmountUnit.Btc))
+        }
+        assertEquals("≈ €50.00", Format.fiat(100_000, 50_000.0, "EUR"))
+        assertEquals("6.38%", Format.percent(0.0638))
+        assertEquals("0.0049", Format.rate(0.0049))
+    }
     @Test fun sats_are_grouped() {
         assertEquals("0", Format.sats(0))
         assertEquals("1,234,567", Format.sats(1_234_567))

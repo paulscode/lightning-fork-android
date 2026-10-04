@@ -256,7 +256,7 @@ class SendViewModel(
         val next = if (s.unit == AmountUnit.Sats) AmountUnit.Btc else AmountUnit.Sats
         val sats = Format.parseAmount(s.amountText, s.unit)
         settings.unit = next
-        _ui.update { it.copy(unit = next, amountText = sats?.let { v -> Format.amount(v, next).replace(",", "") } ?: "") }
+        _ui.update { it.copy(unit = next, amountText = sats?.let { v -> Format.editable(v, next) } ?: "") }
     }
 
     fun onSendAll(all: Boolean) {

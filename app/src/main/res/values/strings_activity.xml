@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="activity_received_onchain">Received on-chain</string>
+    <string name="activity_received">Received</string>
+    <string name="activity_sent_onchain">Sent on-chain</string>
+    <string name="activity_sent">Sent</string>
+    <string name="activity_sha256_invoice">SHA256 invoice</string>
+    <string name="activity_sha256_invoice_via">SHA256 invoice via %1$s</string>
+    <string name="activity_status_on_its_way">On its way</string>
+    <string name="activity_status_returned">Returned</string>
+    <string name="activity_status_confirming">Confirming</string>
+    <string name="activity_status_pending">Pending</string>
+    <string name="activity_status_failed">Failed</string>
+</resources>

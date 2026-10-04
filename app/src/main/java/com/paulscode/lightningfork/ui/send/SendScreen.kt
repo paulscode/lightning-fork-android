@@ -291,7 +291,7 @@ private fun ReviewStep(ui: SendUi, vm: SendViewModel, wallet: WalletState) {
                     onTextChange = vm::onAmountText,
                     unit = ui.unit,
                     onToggleUnit = vm::toggleUnit,
-                    fiat = Format.parseAmount(ui.amountText, ui.unit)?.let { Format.fiat(it, wallet.usdPrice) },
+                    fiat = Format.parseAmount(ui.amountText, ui.unit)?.let { Format.fiat(it, wallet.fiatPrice, wallet.fiatCurrency) },
                 )
             } else {
                 AppCard(Modifier.fillMaxWidth()) {
@@ -300,7 +300,7 @@ private fun ReviewStep(ui: SendUi, vm: SendViewModel, wallet: WalletState) {
                     val amount = ui.amountSat
                     if (amount != null) {
                         AnimatedAmount(amount, ui.unit, style = MaterialTheme.typography.displaySmall, color = TextPrimary)
-                        Format.fiat(amount, wallet.usdPrice)?.let {
+                        Format.fiat(amount, wallet.fiatPrice, wallet.fiatCurrency)?.let {
                             Text(it, style = MaterialTheme.typography.bodySmall, color = TextMuted)
                         }
                     } else {
@@ -479,7 +479,7 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
             Spacer(Modifier.height(6.dp))
             val most = est.maxIncomingSat + est.routingFeeLimitSat
             AnimatedAmount(most, ui.unit, style = MaterialTheme.typography.displaySmall, color = TextPrimary, coin = Coin.Btcb2)
-            Format.fiat(most, wallet.usdPrice)?.let {
+            Format.fiat(most, wallet.fiatPrice, wallet.fiatCurrency)?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = TextMuted)
             }
             Spacer(Modifier.height(6.dp))
@@ -518,7 +518,7 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
     Spacer(Modifier.height(18.dp))
     AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
         t.amountSat?.let { sha ->
-            val fiat = est?.let { Format.sha256Fiat(sha, it.rate, wallet.usdPrice) }
+            val fiat = est?.let { Format.sha256Fiat(sha, it.rate, wallet.fiatPrice, wallet.fiatCurrency) }
             InfoRow("Pays on the SHA256 chain", Format.amountWithUnit(sha, ui.unit, Coin.Sha256) + (fiat?.let { ", $it" } ?: ""))
         }
         est?.let { InfoRow("Service fee", "${Format.amountWithUnit(it.feeSat, ui.unit, Coin.Btcb2)}, included") }

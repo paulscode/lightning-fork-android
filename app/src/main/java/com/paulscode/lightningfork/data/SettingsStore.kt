@@ -80,6 +80,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("show_fiat", true)
         set(v) { prefs.edit().putBoolean("show_fiat", v).apply() }
 
+    /** The currency estimates are shown in; null for the phone's own (when the node quotes it). */
+    var fiatCurrency: String?
+        get() = prefs.getString("fiat_currency", null)
+        set(v) { prefs.edit().putString("fiat_currency", v).apply() }
+
     var appLock: Boolean
         get() = prefs.getBoolean("app_lock", true)
         set(v) { prefs.edit().putBoolean("app_lock", v).apply() }

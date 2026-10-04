@@ -1,6 +1,8 @@
 package com.paulscode.lightningfork.ui.activity
 
+import com.paulscode.lightningfork.R
 import com.paulscode.lightningfork.net.ActivityItem
+import com.paulscode.lightningfork.ui.text.UiText
 
 /** How a status reads: on its way, did not go through, or came back (nothing lost). */
 enum class StatusTone { Waiting, Failed, Returned }
@@ -9,42 +11,44 @@ enum class StatusTone { Waiting, Failed, Returned }
 object ActivityLabels {
     fun isBitcoinInvoice(item: ActivityItem): Boolean = item.bitcoinInvoice != null
 
-    fun title(item: ActivityItem): String {
+    fun title(item: ActivityItem): UiText {
         val incoming = item.direction == "in"
         // A SHA256 invoice reads as what it was for, when it says.
         item.bitcoinInvoice?.let { inv ->
-            return inv.description.ifBlank { item.description }.ifBlank { "SHA256 invoice" }
+            val about = inv.description.ifBlank { item.description }
+            return if (about.isNotBlank()) UiText.raw(about) else UiText.of(R.string.activity_sha256_invoice)
         }
-        return item.description.ifBlank {
+        if (item.description.isNotBlank()) return UiText.raw(item.description)
+        return UiText.of(
             when {
-                incoming && item.kind == "onchain" -> "Received on-chain"
-                incoming -> "Received"
-                item.kind == "onchain" -> "Sent on-chain"
-                else -> "Sent"
-            }
-        }
+                incoming && item.kind == "onchain" -> R.string.activity_received_onchain
+                incoming -> R.string.activity_received
+                item.kind == "onchain" -> R.string.activity_sent_onchain
+                else -> R.string.activity_sent
+            },
+        )
     }
 
     /** The status pill, or null for one that is done. */
-    fun status(item: ActivityItem): Pair<String, StatusTone>? {
+    fun status(item: ActivityItem): Pair<UiText, StatusTone>? {
         item.bitcoinInvoice?.let {
             return when (it.state) {
-                "pending" -> "On its way" to StatusTone.Waiting
-                "returned" -> "Returned" to StatusTone.Returned
+                "pending" -> UiText.of(R.string.activity_status_on_its_way) to StatusTone.Waiting
+                "returned" -> UiText.of(R.string.activity_status_returned) to StatusTone.Returned
                 else -> null
             }
         }
         return when (item.status) {
-            "pending" -> (if (item.kind == "onchain") "Confirming" else "Pending") to StatusTone.Waiting
-            "failed" -> "Failed" to StatusTone.Failed
+            "pending" -> UiText.of(if (item.kind == "onchain") R.string.activity_status_confirming else R.string.activity_status_pending) to StatusTone.Waiting
+            "failed" -> UiText.of(R.string.activity_status_failed) to StatusTone.Failed
             else -> null
         }
     }
 
     /** The line under a SHA256 invoice's title: what it is, and through whom. */
-    fun subtitle(item: ActivityItem): String? {
+    fun subtitle(item: ActivityItem): UiText? {
         val inv = item.bitcoinInvoice ?: return null
-        return if (inv.serviceLabel.isNotBlank()) "SHA256 invoice via ${inv.serviceLabel}" else "SHA256 invoice"
+        return if (inv.serviceLabel.isNotBlank()) UiText.of(R.string.activity_sha256_invoice_via, inv.serviceLabel) else UiText.of(R.string.activity_sha256_invoice)
     }
 
     /** Whether the list should look again on its own: a SHA256 invoice still on its way. */

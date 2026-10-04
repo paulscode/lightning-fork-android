@@ -203,10 +203,10 @@ class BitcoinInvoiceTest {
     @Test fun activity_shows_bitcoin_invoices_as_such() {
         val (paid, pending, returned, plain) = activity.items
         // Titled by what it was for, and said to be a SHA256 invoice below.
-        assertEquals("A sticker", ActivityLabels.title(paid))
-        assertEquals("SHA256 invoice via Alice's bridge", ActivityLabels.subtitle(paid))
-        assertEquals("SHA256 invoice", ActivityLabels.title(pending))
-        assertEquals("SHA256 invoice", ActivityLabels.subtitle(pending))
+        assertEquals(com.paulscode.lightningfork.ui.text.UiText.raw("A sticker"), ActivityLabels.title(paid))
+        assertEquals(com.paulscode.lightningfork.ui.text.UiText.of(R.string.activity_sha256_invoice_via, "Alice's bridge"), ActivityLabels.subtitle(paid))
+        assertEquals(com.paulscode.lightningfork.ui.text.UiText.of(R.string.activity_sha256_invoice), ActivityLabels.title(pending))
+        assertEquals(com.paulscode.lightningfork.ui.text.UiText.of(R.string.activity_sha256_invoice), ActivityLabels.subtitle(pending))
         assertNull(ActivityLabels.subtitle(plain))
         assertTrue(ActivityLabels.anyOnItsWay(activity.items))
         assertFalse(ActivityLabels.anyOnItsWay(listOf(paid, returned, plain)))
@@ -217,16 +217,16 @@ class BitcoinInvoiceTest {
         assertNull(ActivityLabels.status(paid))
         assertFalse(ActivityLabels.didNotMove(paid))
 
-        assertEquals("On its way" to StatusTone.Waiting, ActivityLabels.status(pending))
+        assertEquals(StatusTone.Waiting, ActivityLabels.status(pending)!!.second)
         assertNull(pending.preimage)
 
         // Came back: nothing was lost, so not shown as a failure.
-        assertEquals("Returned" to StatusTone.Returned, ActivityLabels.status(returned))
+        assertEquals(StatusTone.Returned, ActivityLabels.status(returned)!!.second)
         assertTrue(ActivityLabels.didNotMove(returned))
 
         assertFalse(ActivityLabels.isBitcoinInvoice(plain))
-        assertEquals("Coffee", ActivityLabels.title(plain))
-        assertEquals("Pending" to StatusTone.Waiting, ActivityLabels.status(plain))
+        assertEquals(com.paulscode.lightningfork.ui.text.UiText.raw("Coffee"), ActivityLabels.title(plain))
+        assertEquals(com.paulscode.lightningfork.ui.text.UiText.of(R.string.activity_status_pending) to StatusTone.Waiting, ActivityLabels.status(plain))
     }
 
     @Test fun rates_and_premiums_read_plainly() {

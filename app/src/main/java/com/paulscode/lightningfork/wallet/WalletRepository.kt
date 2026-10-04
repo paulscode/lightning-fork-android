@@ -51,8 +51,10 @@ data class WalletState(
     val error: String? = null,
     /** Why this phone must pair again, if it must. The user is asked first. */
     val repair: Repair? = null,
-    /** USD per BTC, when known and wanted. */
-    val usdPrice: Double? = null,
+    /** The price of one BTCB2 in [fiatCurrency], when known and wanted. */
+    val fiatPrice: Double? = null,
+    /** The currency [fiatPrice] is in. */
+    val fiatCurrency: String = "USD",
     /** The dashboard's /bootstrap: what it can do and its SHA256 invoice service; null until read. */
     val dashboard: com.paulscode.lightningfork.net.BootstrapResponse? = null,
 )
@@ -285,16 +287,36 @@ class WalletRepository(
         }
     }
 
+    /**
+     * The price in the chosen currency, or the phone's own; in dollars when
+     * the node has no quote in that one now (dollars need no conversion), so
+     * an estimate never wears a symbol its number isn't in.
+     */
     private suspend fun refreshPrice() {
-        runCatching { api.price("USD") }.onSuccess { p ->
+        val wanted = wantedCurrency()
+        for (code in listOf(wanted, "USD").distinct()) {
+            val p = runCatching { api.price(code) }.getOrNull() ?: continue
             lastPriceMs = System.currentTimeMillis()
-            if (p.price != null && p.price > 0) _state.update { it.copy(usdPrice = p.price) }
+            if (p.price != null && p.price > 0) {
+                _state.update { it.copy(fiatPrice = p.price, fiatCurrency = p.currency.ifBlank { code }) }
+                return
+            }
         }
     }
 
+    private fun wantedCurrency(): String =
+        settings.fiatCurrency ?: runCatching { java.util.Currency.getInstance(java.util.Locale.getDefault()).currencyCode }.getOrNull() ?: "USD"
+
     fun setShowFiat(show: Boolean) {
         settings.showFiat = show
-        if (!show) _state.update { it.copy(usdPrice = null) } else lastPriceMs = 0
+        if (!show) _state.update { it.copy(fiatPrice = null) } else lastPriceMs = 0
+    }
+
+    /** A currency chosen in Settings, or null for the phone's own; asked anew at once. */
+    fun setFiatCurrency(code: String?) {
+        settings.fiatCurrency = code
+        lastPriceMs = 0
+        _state.update { it.copy(fiatPrice = null) }
     }
 
     fun reset() {

@@ -378,6 +378,9 @@ data class ActivityBitcoinInvoice(
 data class ActivityResponse(val items: List<ActivityItem> = emptyList())
 
 @Serializable
+data class CurrenciesResponse(val currencies: List<String> = listOf("USD"))
+
+@Serializable
 data class PriceResponse(val currency: String = "USD", val price: Double? = null)
 
 /** [code]: a refusal's stable name; [uncertain]: the money may have moved. */

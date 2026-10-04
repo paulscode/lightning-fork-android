@@ -82,7 +82,7 @@ class ReceiveViewModel(
     fun toggleUnit() {
         val s = _ui.value
         val next = if (s.unit == AmountUnit.Sats) AmountUnit.Btc else AmountUnit.Sats
-        fun convert(t: String) = Format.parseAmount(t, s.unit)?.let { Format.amount(it, next).replace(",", "") } ?: ""
+        fun convert(t: String) = Format.parseAmount(t, s.unit)?.let { Format.editable(it, next) } ?: ""
         settings.unit = next
         _ui.update { it.copy(unit = next, amountText = convert(s.amountText), onchainAmountText = convert(s.onchainAmountText)) }
     }

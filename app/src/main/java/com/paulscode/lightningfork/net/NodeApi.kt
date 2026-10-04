@@ -88,6 +88,14 @@ class NodeApi(private val transport: Transport) {
     suspend fun activity(limit: Int = 50): ActivityResponse =
         getJson("/api/v1/activity?limit=$limit", ActivityResponse.serializer())
 
+    /** The currencies the node can quote now; dollars only from a dashboard too old to say. */
+    suspend fun currencies(): List<String> =
+        try {
+            ApiJson.decodeFromString(CurrenciesResponse.serializer(), transport.get("/api/v1/currencies", 30)).currencies
+        } catch (e: ApiException) {
+            if (e.status == 404) listOf("USD") else throw e
+        }
+
     suspend fun price(currency: String = "USD"): PriceResponse =
         getJson("/api/v1/price?currency=$currency", PriceResponse.serializer())
 

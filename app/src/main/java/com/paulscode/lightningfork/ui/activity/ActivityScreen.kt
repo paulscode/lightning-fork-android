@@ -65,6 +65,7 @@ import com.paulscode.lightningfork.ui.theme.TextFaint
 import com.paulscode.lightningfork.ui.theme.TextMuted
 import com.paulscode.lightningfork.ui.theme.TextPrimary
 import com.paulscode.lightningfork.ui.theme.Warning
+import com.paulscode.lightningfork.ui.text.text
 import com.paulscode.lightningfork.util.Clipboard
 import com.paulscode.lightningfork.util.Coin
 import com.paulscode.lightningfork.util.Format
@@ -179,15 +180,15 @@ private fun ActivityRow(item: ActivityItem, unit: AmountUnit) {
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(ActivityLabels.title(item), style = MaterialTheme.typography.titleSmall, color = TextPrimary, maxLines = 1)
+                Text(ActivityLabels.title(item).text(), style = MaterialTheme.typography.titleSmall, color = TextPrimary, maxLines = 1)
                 ActivityLabels.subtitle(item)?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = TextMuted, maxLines = 1)
+                    Text(it.text(), style = MaterialTheme.typography.bodySmall, color = TextMuted, maxLines = 1)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(Format.ago(item.timestamp), style = MaterialTheme.typography.bodySmall, color = TextFaint)
                     ActivityLabels.status(item)?.let { (text, tone) ->
                         Pill(
-                            text,
+                            text.text(),
                             color = when (tone) {
                                 StatusTone.Waiting -> Warning
                                 StatusTone.Returned -> TextMuted

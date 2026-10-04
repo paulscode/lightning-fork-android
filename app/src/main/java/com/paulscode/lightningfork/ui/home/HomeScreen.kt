@@ -162,7 +162,7 @@ fun HomeScreen(
                         sats = w?.onchain?.confirmedSat,
                         unit = unit,
                         onToggleUnit = onToggleUnit,
-                        fiat = w?.onchain?.confirmedSat?.let { Format.fiat(it, state.usdPrice) },
+                        fiat = w?.onchain?.confirmedSat?.let { Format.fiat(it, state.fiatPrice, state.fiatCurrency) },
                         lines = buildList {
                             val incoming = w?.onchain?.unconfirmedSat ?: 0
                             if (incoming > 0) add("${Format.amountWithUnit(incoming, unit)} unconfirmed" to Warning)
@@ -176,7 +176,7 @@ fun HomeScreen(
                         sats = w?.lightning?.outboundSat,
                         unit = unit,
                         onToggleUnit = onToggleUnit,
-                        fiat = w?.lightning?.outboundSat?.let { Format.fiat(it, state.usdPrice) },
+                        fiat = w?.lightning?.outboundSat?.let { Format.fiat(it, state.fiatPrice, state.fiatCurrency) },
                         lines = buildList {
                             val opening = w?.lightning?.pendingOutboundSat ?: 0
                             if (opening > 0) add("${Format.amountWithUnit(opening, unit)} in channels opening" to Warning)

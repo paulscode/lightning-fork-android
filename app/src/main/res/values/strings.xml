@@ -1,3 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Shared words: units, times and the approximate sign, used by util/Format.
+    Each area of the app keeps its own strings in strings_<area>.xml beside
+    this file. "BTC", "BTCB2", "SHA256" and "BLAKE2b" are names, not words to
+    translate. The SHA256 chain is never called "Bitcoin".
+-->
 <resources>
     <string name="app_name">Lightning Fork</string>
+
+    <plurals name="unit_sats">
+        <item quantity="one">sat</item>
+        <item quantity="other">sats</item>
+    </plurals>
+    <plurals name="unit_sats_btcb2">
+        <item quantity="one">sat (BTCB2)</item>
+        <item quantity="other">sats (BTCB2)</item>
+    </plurals>
+    <plurals name="unit_sats_sha256">
+        <item quantity="one">sat (SHA256)</item>
+        <item quantity="other">sats (SHA256)</item>
+    </plurals>
+
+    <!-- An estimate in a currency, e.g. "≈ $50.00". -->
+    <string name="format_approx">≈ %1$s</string>
+
+    <string name="time_just_now">just now</string>
+    <plurals name="time_min_ago">
+        <item quantity="one">%d min ago</item>
+        <item quantity="other">%d min ago</item>
+    </plurals>
+    <plurals name="time_h_ago">
+        <item quantity="one">%d h ago</item>
+        <item quantity="other">%d h ago</item>
+    </plurals>
+    <plurals name="time_d_ago">
+        <item quantity="one">%d d ago</item>
+        <item quantity="other">%d d ago</item>
+    </plurals>
+    <string name="time_about_an_hour">about an hour</string>
+    <plurals name="time_about_hours">
+        <item quantity="one">about %d hour</item>
+        <item quantity="other">about %d hours</item>
+    </plurals>
+    <plurals name="time_about_days">
+        <item quantity="one">about %d day</item>
+        <item quantity="other">about %d days</item>
+    </plurals>
 </resources>

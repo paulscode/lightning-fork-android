@@ -136,7 +136,7 @@ private fun InvoiceForm(ui: ReceiveUi, vm: ReceiveViewModel, wallet: WalletState
                 unit = ui.unit,
                 onToggleUnit = vm::toggleUnit,
                 placeholder = "Any amount",
-                fiat = Format.parseAmount(ui.amountText, ui.unit)?.let { Format.fiat(it, wallet.usdPrice) },
+                fiat = Format.parseAmount(ui.amountText, ui.unit)?.let { Format.fiat(it, wallet.fiatPrice, wallet.fiatCurrency) },
             )
             Spacer(Modifier.height(16.dp))
             AppTextField(
@@ -315,7 +315,7 @@ private fun OnchainTab(ui: ReceiveUi, vm: ReceiveViewModel, wallet: WalletState)
                 unit = ui.unit,
                 onToggleUnit = vm::toggleUnit,
                 label = "Amount to ask for (optional)",
-                fiat = Format.parseAmount(ui.onchainAmountText, ui.unit)?.let { Format.fiat(it, wallet.usdPrice) },
+                fiat = Format.parseAmount(ui.onchainAmountText, ui.unit)?.let { Format.fiat(it, wallet.fiatPrice, wallet.fiatCurrency) },
             )
         }
         Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {

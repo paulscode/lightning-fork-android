@@ -64,6 +64,8 @@ import com.paulscode.lightningfork.ui.theme.SurfaceRaised
 import com.paulscode.lightningfork.ui.theme.TextMuted
 import com.paulscode.lightningfork.ui.theme.TextPrimary
 import com.paulscode.lightningfork.util.Format
+import androidx.compose.ui.res.stringResource
+import com.paulscode.lightningfork.ui.text.textOrNull
 
 @Composable
 fun PairScreen(vm: PairViewModel) {
@@ -76,8 +78,8 @@ fun PairScreen(vm: PairViewModel) {
     if (ui.scanning) {
         BackHandler { vm.stopScan() }
         ScanScreen(
-            title = "Scan the pairing code",
-            hint = "In the dashboard: menu → Mobile app",
+            title = stringResource(R.string.pair_scan_title),
+            hint = stringResource(R.string.pair_scan_hint),
             onResult = vm::onScanned,
             onPaste = ::paste,
             onClose = vm::stopScan,
@@ -135,23 +137,23 @@ private fun Welcome(ui: PairUi, onScan: () -> Unit, onPaste: () -> Unit) {
         Spacer(Modifier.height(48.dp))
         Logo()
         Spacer(Modifier.height(24.dp))
-        Text("Lightning Fork", style = MaterialTheme.typography.displaySmall, color = TextPrimary)
+        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displaySmall, color = TextPrimary)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Send and receive BTCB2 from your own node, on the BLAKE2b chain.",
+            stringResource(R.string.pair_tagline),
             style = MaterialTheme.typography.bodyLarge,
             color = TextMuted,
         )
         Spacer(Modifier.height(28.dp))
-        Step(1, "Open your Lightning Fork dashboard on your StartOS or Umbrel server.")
-        Step(2, "In its menu, choose Mobile app, then Pair a phone.")
-        Step(3, "Scan the code it shows.")
+        Step(1, stringResource(R.string.pair_step_1))
+        Step(2, stringResource(R.string.pair_step_2))
+        Step(3, stringResource(R.string.pair_step_3))
         Spacer(Modifier.height(20.dp))
-        Notice(ui.error)
+        Notice(ui.error.textOrNull())
         Spacer(Modifier.height(32.dp))
-        PrimaryButton("Scan pairing code", onClick = onScan, icon = Icons.Rounded.QrCodeScanner, modifier = Modifier.fillMaxWidth())
+        PrimaryButton(stringResource(R.string.pair_scan_button), onClick = onScan, icon = Icons.Rounded.QrCodeScanner, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
-        SecondaryButton("Paste code", onClick = onPaste, icon = Icons.Rounded.ContentPaste, modifier = Modifier.fillMaxWidth())
+        SecondaryButton(stringResource(R.string.pair_paste_button), onClick = onPaste, icon = Icons.Rounded.ContentPaste, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -162,7 +164,7 @@ private fun Step(n: Int, text: String) {
             Modifier.size(26.dp).clip(CircleShape).background(SurfaceRaised),
             contentAlignment = Alignment.Center,
         ) {
-            Text("$n", style = MaterialTheme.typography.labelMedium, color = Accent)
+            Text(Format.sats(n.toLong()), style = MaterialTheme.typography.labelMedium, color = Accent)
         }
         Spacer(Modifier.width(12.dp))
         Text(text, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, modifier = Modifier.padding(top = 3.dp))
@@ -177,40 +179,40 @@ private fun Confirm(ui: PairUi, vm: PairViewModel) {
             Spacer(Modifier.height(32.dp))
             Logo()
             Spacer(Modifier.height(20.dp))
-            Text("Pair with your node", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+            Text(stringResource(R.string.pair_confirm_title), style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
             Spacer(Modifier.height(6.dp))
             Text(
-                "This phone gets a key of its own, which you can remove from the dashboard at any time.",
+                stringResource(R.string.pair_confirm_text),
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextMuted,
             )
             if (ui.fromLink) {
                 Spacer(Modifier.height(14.dp))
                 Notice(
-                    "This code came from a link. Pair only if you opened it from your own dashboard just now, and the addresses below are your node's.",
+                    stringResource(R.string.pair_from_link),
                     kind = com.paulscode.lightningfork.ui.components.NoticeKind.Warning,
                 )
             }
             Spacer(Modifier.height(20.dp))
             AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
-                p.lan?.let { InfoRow("Local address", it.removePrefix("https://")) }
-                p.ip?.let { InfoRow("Local IP", it.removePrefix("https://")) }
-                p.onion?.let { InfoRow("Tor", Format.middle(it.substringAfter("://"), 10, 12)) }
-                p.ca?.let { InfoRow("Certificate", it.take(11) + "…") }
+                p.lan?.let { InfoRow(stringResource(R.string.pair_local_address), it.removePrefix("https://")) }
+                p.ip?.let { InfoRow(stringResource(R.string.pair_local_ip), it.removePrefix("https://")) }
+                p.onion?.let { InfoRow(stringResource(R.string.pair_tor), Format.middle(it.substringAfter("://"), 10, 12)) }
+                p.ca?.let { InfoRow(stringResource(R.string.pair_certificate), it.take(11) + "…") }
             }
             Spacer(Modifier.height(18.dp))
             AppTextField(
                 value = ui.label,
                 onValueChange = vm::onLabel,
-                label = "Name this phone",
-                placeholder = "My phone",
+                label = stringResource(R.string.pair_name_label),
+                placeholder = stringResource(R.string.pair_name_placeholder),
             )
             Spacer(Modifier.height(14.dp))
-            Notice(ui.error)
+            Notice(ui.error.textOrNull())
         }
-        PrimaryButton("Pair", onClick = vm::pair, modifier = Modifier.fillMaxWidth(), enabled = ui.recoverable || ui.error == null)
+        PrimaryButton(stringResource(R.string.pair_pair), onClick = vm::pair, modifier = Modifier.fillMaxWidth(), enabled = ui.recoverable || ui.error == null)
         Spacer(Modifier.height(4.dp))
-        QuietButton("Scan a different code", onClick = { vm.reset(); vm.startScan() }, modifier = Modifier.align(Alignment.CenterHorizontally))
+        QuietButton(stringResource(R.string.pair_scan_different), onClick = { vm.reset(); vm.startScan() }, modifier = Modifier.align(Alignment.CenterHorizontally))
     }
 }
 
@@ -229,10 +231,10 @@ private fun Progress(ui: PairUi, vm: PairViewModel) {
         Spacer(Modifier.height(28.dp))
         Text(
             when (ui.phase) {
-                PairPhase.Reaching -> "Reaching your node…"
-                PairPhase.StartingTor -> "Starting Tor… $torProgress%"
-                PairPhase.Claiming -> "Pairing…"
-                PairPhase.Finishing, PairPhase.Done -> "Paired"
+                PairPhase.Reaching -> stringResource(R.string.pair_phase_reaching)
+                PairPhase.StartingTor -> stringResource(R.string.pair_phase_starting_tor, Format.percent(torProgress / 100.0))
+                PairPhase.Claiming -> stringResource(R.string.pair_phase_claiming)
+                PairPhase.Finishing, PairPhase.Done -> stringResource(R.string.pair_phase_paired)
                 null -> ""
             },
             style = MaterialTheme.typography.headlineSmall,
@@ -241,7 +243,7 @@ private fun Progress(ui: PairUi, vm: PairViewModel) {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            if (ui.phase == PairPhase.StartingTor) "Away from home, the phone reaches your node over Tor. The first start takes up to a minute." else "",
+            if (ui.phase == PairPhase.StartingTor) stringResource(R.string.pair_tor_first_start) else "",
             style = MaterialTheme.typography.bodyMedium,
             color = TextMuted,
             textAlign = TextAlign.Center,

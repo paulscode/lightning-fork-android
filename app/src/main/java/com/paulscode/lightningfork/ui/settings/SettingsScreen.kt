@@ -52,6 +52,16 @@ import com.paulscode.lightningfork.ui.theme.Warning
 import com.paulscode.lightningfork.util.Format
 import com.paulscode.lightningfork.wallet.WalletState
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.paulscode.lightningfork.R
+import com.paulscode.lightningfork.ui.text.UiText
+import com.paulscode.lightningfork.ui.text.text
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.semantics.Role
 
 @Composable
 fun SettingsScreen(
@@ -74,70 +84,69 @@ fun SettingsScreen(
     val endpoints = settings.endpoints
 
     Column(Modifier.fillMaxSize().background(Page).statusBarsPadding().navigationBarsPadding()) {
-        TopBar("Settings", onBack = onClose)
+        TopBar(stringResource(R.string.settings_title), onBack = onClose)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-            Section("Your node")
+            Section(stringResource(R.string.settings_section_node))
             AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
                 val node = wallet.node
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(node?.alias?.ifBlank { null } ?: "Lightning Fork node", style = MaterialTheme.typography.titleMedium, color = TextPrimary, modifier = Modifier.weight(1f))
-                    Pill(if (node?.network == "mainnet" || node == null) "BLAKE2b chain" else node.network)
+                    Text(node?.alias?.ifBlank { null } ?: stringResource(R.string.settings_node_fallback_alias), style = MaterialTheme.typography.titleMedium, color = TextPrimary, modifier = Modifier.weight(1f))
+                    Pill(if (node?.network == "mainnet" || node == null) stringResource(R.string.settings_chain_blake2b) else node.network)
                 }
                 Spacer(Modifier.height(8.dp))
                 if (node != null) {
-                    InfoRow("Block height", Format.sats(node.blockHeight))
-                    InfoRow("Synced", if (node.syncedToChain) "Yes" else "Catching up", valueColor = if (node.syncedToChain) Success else Warning)
-                    InfoRow("Channels", node.activeChannels.toString())
-                    InfoRow("Version", node.version.substringBefore(" "))
+                    InfoRow(stringResource(R.string.settings_block_height), Format.sats(node.blockHeight))
+                    InfoRow(stringResource(R.string.settings_synced), if (node.syncedToChain) stringResource(R.string.settings_synced_yes) else stringResource(R.string.settings_synced_catching_up), valueColor = if (node.syncedToChain) Success else Warning)
+                    InfoRow(stringResource(R.string.settings_channels), Format.sats(node.activeChannels.toLong()))
+                    InfoRow(stringResource(R.string.settings_version), node.version.substringBefore(" "))
                 }
             }
 
-            Section("Paying SHA256 invoices")
+            Section(stringResource(R.string.settings_section_sha256))
             Sha256InvoicesCard(container, wallet)
 
-            Section("Connection")
+            Section(stringResource(R.string.settings_section_connection))
             AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Dot(if (route != null && wallet.error == null) Success else Warning)
                     Spacer(Modifier.width(10.dp))
                     Text(
                         when (route) {
-                            Route.Lan -> "On your local network"
-                            Route.Tor -> "Over Tor"
-                            null -> "Not connected yet"
+                            Route.Lan -> stringResource(R.string.settings_route_lan)
+                            Route.Tor -> stringResource(R.string.settings_route_tor)
+                            null -> stringResource(R.string.settings_route_none)
                         },
                         style = MaterialTheme.typography.titleSmall,
                         color = TextPrimary,
                     )
                 }
                 Spacer(Modifier.height(8.dp))
-                endpoints.lanUrl?.let { InfoRow("Local address", it.removePrefix("https://")) }
-                endpoints.lanIp?.let { InfoRow("Local IP", it.removePrefix("https://")) }
-                endpoints.onionUrl?.let { InfoRow("Tor address", Format.middle(it.substringAfter("://"), 10, 12)) }
+                endpoints.lanUrl?.let { InfoRow(stringResource(R.string.settings_local_address), it.removePrefix("https://")) }
+                endpoints.lanIp?.let { InfoRow(stringResource(R.string.settings_local_ip), it.removePrefix("https://")) }
+                endpoints.onionUrl?.let { InfoRow(stringResource(R.string.settings_tor_address), Format.middle(it.substringAfter("://"), 10, 12)) }
                 // Without an onion address there is nothing for Tor to reach:
                 // the app works at home only until the node has one.
                 if (endpoints.onionUrl == null) {
-                    InfoRow("Away from home", "Not set up", valueColor = Warning)
+                    InfoRow(stringResource(R.string.settings_away_from_home), stringResource(R.string.settings_not_set_up), valueColor = Warning)
                     Text(
-                        "Your node has no onion address yet, so the app reaches it only on your local network. " +
-                            "The dashboard's Mobile app screen shows how to add one; the app picks it up the next time it connects at home.",
+                        stringResource(R.string.settings_no_onion),
                         style = MaterialTheme.typography.bodySmall,
                         color = TextMuted,
                         modifier = Modifier.padding(bottom = 4.dp),
                     )
                 } else InfoRow(
-                    "Tor",
+                    stringResource(R.string.settings_tor),
                     when (torStatus) {
-                        TorStatus.Stopped -> "Starts when needed"
-                        TorStatus.Bootstrapping -> "Starting… $torProgress%"
-                        TorStatus.Ready -> "Ready"
-                        TorStatus.Failed -> "Could not start"
+                        TorStatus.Stopped -> stringResource(R.string.settings_tor_stopped)
+                        TorStatus.Bootstrapping -> stringResource(R.string.settings_tor_starting, Format.percent(torProgress / 100.0))
+                        TorStatus.Ready -> stringResource(R.string.settings_tor_ready)
+                        TorStatus.Failed -> stringResource(R.string.settings_tor_failed)
                     },
                     valueColor = if (torStatus == TorStatus.Failed) Danger else TextPrimary,
                 )
                 endpoints.caSha256?.let {
                     Spacer(Modifier.height(6.dp))
-                    Text("Pinned certificate", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                    Text(stringResource(R.string.settings_pinned_certificate), style = MaterialTheme.typography.bodySmall, color = TextMuted)
                     Text(
                         it.take(47) + "…",
                         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
@@ -146,22 +155,28 @@ fun SettingsScreen(
                 }
             }
 
-            Section("Display")
+            Section(stringResource(R.string.settings_section_display))
             SegmentedToggle(
-                options = listOf("sats", "BTC"),
+                options = listOf(Format.unitLabel(AmountUnit.Sats), Format.unitLabel(AmountUnit.Btc)),
                 selected = if (unit == AmountUnit.Sats) 0 else 1,
                 onSelect = { onUnit(if (it == 0) AmountUnit.Sats else AmountUnit.Btc) },
             )
             Spacer(Modifier.height(10.dp))
-            ToggleRow("Show US dollar estimates", "From the dashboard's price source", showFiat) {
+            ToggleRow(
+                stringResource(R.string.settings_show_estimates),
+                if (showFiat && wallet.fiatPrice != null) stringResource(R.string.settings_show_estimates_in, currencyName(wallet.fiatCurrency))
+                else stringResource(R.string.settings_show_estimates_source),
+                showFiat,
+            ) {
                 showFiat = it
                 container.wallet.setShowFiat(it)
             }
+            if (showFiat) EstimatesCurrencyCard(container, wallet)
 
-            Section("Security")
+            Section(stringResource(R.string.settings_section_security))
             ToggleRow(
-                "Lock the app",
-                if (lockAvailable) "Ask for your fingerprint, face or screen lock when opening" else "Set a screen lock on this phone to use this",
+                stringResource(R.string.settings_lock_app),
+                if (lockAvailable) stringResource(R.string.settings_lock_app_on_open) else stringResource(R.string.settings_lock_app_unavailable),
                 appLock && lockAvailable,
                 enabled = lockAvailable,
             ) {
@@ -169,24 +184,24 @@ fun SettingsScreen(
                 settings.appLock = it
             }
 
-            Section("This phone")
+            Section(stringResource(R.string.settings_section_phone))
             AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
-                InfoRow("Name on your node", settings.deviceLabel ?: "—")
+                InfoRow(stringResource(R.string.settings_name_on_node), settings.deviceLabel ?: "—")
                 Text(
-                    "Remove this phone from your node in the dashboard (menu → Mobile app), or unpair it here.",
+                    stringResource(R.string.settings_remove_phone_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextMuted,
                     modifier = Modifier.padding(top = 6.dp),
                 )
             }
             Spacer(Modifier.height(12.dp))
-            SecondaryButton("Unpair this phone", onClick = { confirmUnpair = true }, contentColor = Danger, modifier = Modifier.fillMaxWidth())
+            SecondaryButton(stringResource(R.string.settings_unpair_phone), onClick = { confirmUnpair = true }, contentColor = Danger, modifier = Modifier.fillMaxWidth())
 
-            Section("About")
+            Section(stringResource(R.string.settings_section_about))
             AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
-                InfoRow("App version", BuildConfig.VERSION_NAME)
+                InfoRow(stringResource(R.string.settings_app_version), BuildConfig.VERSION_NAME)
                 com.paulscode.lightningfork.ui.components.QuietButton(
-                    "Open-source licenses",
+                    stringResource(R.string.settings_licenses),
                     onClick = onLicenses,
                     modifier = Modifier.padding(top = 4.dp),
                 )
@@ -198,19 +213,19 @@ fun SettingsScreen(
     if (confirmUnpair) {
         AlertDialog(
             onDismissRequest = { confirmUnpair = false },
-            title = { Text("Unpair this phone?") },
+            title = { Text(stringResource(R.string.settings_unpair_title)) },
             text = {
-                Text("The phone forgets your node and its key, and asks your node to remove it. Your funds stay on your node. To use the app again, pair it from the dashboard.")
+                Text(stringResource(R.string.settings_unpair_text))
             },
             confirmButton = {
                 TextButton(onClick = {
                     confirmUnpair = false
                     container.unpairAndRemove()
                     onUnpaired()
-                }) { Text("Unpair", color = Danger) }
+                }) { Text(stringResource(R.string.settings_unpair), color = Danger) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmUnpair = false }) { Text("Cancel", color = Accent) }
+                TextButton(onClick = { confirmUnpair = false }) { Text(stringResource(R.string.settings_cancel), color = Accent) }
             },
         )
     }
@@ -254,48 +269,52 @@ private fun Sha256InvoicesCard(container: AppContainer, wallet: WalletState) {
     var explain by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<com.paulscode.lightningfork.net.BitcoinInvoicesStatus?>(null) }
     var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<UiText?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     if (explain) com.paulscode.lightningfork.ui.send.Sha256Explainer(onDismiss = { explain = false })
     AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
         val summary = dashboard?.bitcoinInvoices
         when {
-            dashboard == null -> Text("Asking your node…", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            dashboard == null -> Text(stringResource(R.string.settings_asking_node), style = MaterialTheme.typography.bodySmall, color = TextMuted)
             !dashboard.paysSha256Invoices -> Text(
-                "Your dashboard is too old to pay SHA256 invoices. Update Lightning Fork on your node to use them.",
+                stringResource(R.string.settings_sha256_dashboard_too_old),
                 style = MaterialTheme.typography.bodySmall,
                 color = Warning,
             )
             summary == null || !summary.configured -> Text(
-                "Not set up. To pay SHA256 invoices from this phone, add a service in the dashboard, under Paying SHA256 invoices, with the code its operator gives you.",
+                stringResource(R.string.settings_sha256_not_set_up),
                 style = MaterialTheme.typography.bodySmall,
                 color = TextMuted,
             )
             else -> {
-                InfoRow("Service", summary.label.ifBlank { "Set up" })
-                InfoRow("Allowed above the market", Format.percent(summary.premium))
-                if (summary.onion) InfoRow("Reached", "Over Tor")
+                InfoRow(stringResource(R.string.settings_service), summary.label.ifBlank { stringResource(R.string.settings_service_set_up) })
+                InfoRow(stringResource(R.string.settings_allowed_above_market), Format.percent(summary.premium))
+                if (summary.onion) InfoRow(stringResource(R.string.settings_reached), stringResource(R.string.settings_over_tor))
                 val st = status
                 if (st != null) {
                     val terms = st.terms
                     when {
-                        st.error != null -> InfoRow("Right now", "Not answering", valueColor = Warning)
-                        terms == null -> InfoRow("Right now", "Doesn't pay SHA256 invoices", valueColor = Warning)
-                        !terms.open -> InfoRow("Right now", terms.refusal ?: "Not paying", valueColor = Warning)
+                        st.error != null -> InfoRow(stringResource(R.string.settings_right_now), stringResource(R.string.settings_service_not_answering), valueColor = Warning)
+                        terms == null -> InfoRow(stringResource(R.string.settings_right_now), stringResource(R.string.settings_service_no_sha256), valueColor = Warning)
+                        !terms.open -> InfoRow(stringResource(R.string.settings_right_now), terms.refusal ?: stringResource(R.string.settings_service_not_paying), valueColor = Warning)
                         else -> {
-                            InfoRow("Right now", "Paying", valueColor = Success)
-                            if (terms.rate > 0) InfoRow("Rate", "1 BTC (SHA256) ≈ ${Format.inverseRate(terms.rate)} BTCB2")
-                            InfoRow("Fee", Format.percent(terms.spread))
-                            if (terms.maxSat > 0) InfoRow("Pays", "${Format.sats(terms.minSat)} to ${Format.sats(terms.maxSat)} sats (SHA256)")
+                            InfoRow(stringResource(R.string.settings_right_now), stringResource(R.string.settings_service_paying), valueColor = Success)
+                            if (terms.rate > 0) InfoRow(stringResource(R.string.settings_rate), stringResource(R.string.settings_rate_value, Format.inverseRate(terms.rate)))
+                            InfoRow(stringResource(R.string.settings_fee), Format.percent(terms.spread))
+                            if (terms.maxSat > 0) InfoRow(stringResource(R.string.settings_pays), pluralStringResource(R.plurals.settings_pays_range, terms.maxSat.coerceIn(0, Int.MAX_VALUE.toLong()).toInt(), Format.sats(terms.minSat), Format.sats(terms.maxSat)))
                         }
                     }
                     st.reference?.let { ref ->
-                        if (ref.rate > 0) InfoRow("Market", "1 BTC (SHA256) ≈ ${Format.inverseRate(ref.rate)} BTCB2${if (ref.source.isNotBlank()) ", ${ref.source}" else ""}")
+                        if (ref.rate > 0) InfoRow(
+                            stringResource(R.string.settings_market),
+                            if (ref.source.isNotBlank()) stringResource(R.string.settings_market_value_source, Format.inverseRate(ref.rate), ref.source)
+                            else stringResource(R.string.settings_market_value, Format.inverseRate(ref.rate)),
+                        )
                     }
                 }
-                error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Warning) }
+                error?.let { Text(it.text(), style = MaterialTheme.typography.bodySmall, color = Warning) }
                 com.paulscode.lightningfork.ui.components.QuietButton(
-                    if (loading) "Asking the service…" else if (status == null) "Check its terms now" else "Check again",
+                    if (loading) stringResource(R.string.settings_asking_service) else if (status == null) stringResource(R.string.settings_check_terms) else stringResource(R.string.settings_check_again),
                     onClick = {
                         if (loading) return@QuietButton
                         loading = true
@@ -304,21 +323,150 @@ private fun Sha256InvoicesCard(container: AppContainer, wallet: WalletState) {
                             try {
                                 status = container.api.bitcoinInvoices()
                             } catch (e: com.paulscode.lightningfork.net.ApiException) {
-                                error = e.message
+                                error = UiText.raw(e.message)
                             } catch (e: Exception) {
-                                error = "Can't reach your node right now."
+                                error = UiText.of(R.string.settings_cant_reach_node)
                             }
                             loading = false
                         }
                     },
                 )
                 Text(
-                    "Changed only in the dashboard, under Paying SHA256 invoices.",
+                    stringResource(R.string.settings_sha256_changed_in_dashboard),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextFaint,
                 )
             }
         }
-        com.paulscode.lightningfork.ui.components.QuietButton("How paying a SHA256 invoice works", onClick = { explain = true })
+        com.paulscode.lightningfork.ui.components.QuietButton(stringResource(R.string.settings_sha256_how_it_works), onClick = { explain = true })
+    }
+}
+
+/** The phone's own currency, by its region; null where it has none. */
+private fun phoneCurrency(): String? =
+    runCatching { java.util.Currency.getInstance(java.util.Locale.getDefault()).currencyCode }.getOrNull()
+
+/** "Euro (EUR)" in the phone's language; the code alone where the phone has no name for it. */
+@Composable
+private fun currencyName(code: String): String {
+    val name = runCatching { java.util.Currency.getInstance(code).getDisplayName(java.util.Locale.getDefault()) }.getOrNull()
+    return if (name.isNullOrBlank() || name.equals(code, ignoreCase = true)) code
+    else stringResource(R.string.settings_currency_named, name, code)
+}
+
+/**
+ * Which currency estimates are in: the phone's own (when the node quotes
+ * it) or one the node quotes, chosen from a list asked of the node when
+ * opened. Without a quote in the chosen one the wallet shows dollars, and
+ * says so here.
+ */
+@Composable
+private fun EstimatesCurrencyCard(container: AppContainer, wallet: WalletState) {
+    var chosen by remember { mutableStateOf(container.settings.fiatCurrency) }
+    var choosing by remember { mutableStateOf(false) }
+    val phone = remember { phoneCurrency() }
+    val wanted = chosen ?: phone ?: "USD"
+    Spacer(Modifier.height(6.dp))
+    AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
+        InfoRow(
+            stringResource(R.string.settings_currency),
+            chosen?.let { currencyName(it) } ?: stringResource(R.string.settings_currency_phone),
+        )
+        if (wallet.fiatPrice != null && !wallet.fiatCurrency.equals(wanted, ignoreCase = true)) {
+            Text(
+                stringResource(R.string.settings_currency_fallback, currencyName(wallet.fiatCurrency), currencyName(wanted)),
+                style = MaterialTheme.typography.bodySmall,
+                color = Warning,
+            )
+        }
+        com.paulscode.lightningfork.ui.components.QuietButton(
+            stringResource(R.string.settings_currency_change),
+            onClick = { choosing = true },
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+    if (choosing) {
+        CurrencyDialog(
+            container = container,
+            chosen = chosen,
+            phone = phone,
+            onChoose = {
+                choosing = false
+                if (it != chosen) {
+                    chosen = it
+                    container.wallet.setFiatCurrency(it)
+                }
+            },
+            onDismiss = { choosing = false },
+        )
+    }
+}
+
+@Composable
+private fun CurrencyDialog(
+    container: AppContainer,
+    chosen: String?,
+    phone: String?,
+    onChoose: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var codes by remember { mutableStateOf<List<String>?>(null) }
+    var error by remember { mutableStateOf<UiText?>(null) }
+    LaunchedEffect(Unit) {
+        try {
+            codes = container.api.currencies().map { it.uppercase() }.distinct()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: com.paulscode.lightningfork.net.ApiException) {
+            error = UiText.raw(e.message)
+        } catch (e: Exception) {
+            error = UiText.of(R.string.settings_cant_reach_node)
+        }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_currency_dialog_title)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                ChoiceRow(
+                    stringResource(R.string.settings_currency_phone),
+                    phone?.let { currencyName(it) },
+                    selected = chosen == null,
+                ) { onChoose(null) }
+                val list = codes
+                val err = error
+                when {
+                    list == null && err == null -> Text(stringResource(R.string.settings_asking_node), style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 8.dp))
+                    list == null -> Text(err!!.text(), style = MaterialTheme.typography.bodySmall, color = Warning, modifier = Modifier.padding(top = 8.dp))
+                    else -> {
+                        // A choice the node no longer quotes stays listed, so it can be seen and changed.
+                        val all = if (chosen != null && chosen !in list) listOf(chosen) + list else list
+                        if (all.isEmpty()) Text(stringResource(R.string.settings_currency_none), style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 8.dp))
+                        all.forEach { code -> ChoiceRow(currencyName(code), null, selected = chosen == code) { onChoose(code) } }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_cancel), color = Accent) }
+        },
+    )
+}
+
+@Composable
+private fun ChoiceRow(title: String, subtitle: String?, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = Accent))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+            subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = TextMuted) }
+        }
     }
 }

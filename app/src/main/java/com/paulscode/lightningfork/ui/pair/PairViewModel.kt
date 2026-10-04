@@ -11,13 +11,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.paulscode.lightningfork.R
+import com.paulscode.lightningfork.ui.text.UiText
 
 data class PairUi(
     val scanning: Boolean = false,
     val payload: PairingPayload? = null,
     val label: String = "",
     val phase: PairPhase? = null,
-    val error: String? = null,
+    /** Why the last step failed: the app's words, or the pairing's own message as it came. */
+    val error: UiText? = null,
     val recoverable: Boolean = true,
     val done: Boolean = false,
     val alias: String = "",
@@ -58,7 +61,7 @@ class PairViewModel(
     fun onPasted(text: String) {
         val payload = coordinator.parsePayload(text)
         if (payload == null) {
-            _ui.update { it.copy(scanning = false, error = "That isn't a pairing code. Open the dashboard's menu, choose Mobile app, and scan the code shown there.") }
+            _ui.update { it.copy(scanning = false, error = UiText.of(R.string.pair_not_a_code)) }
         } else {
             accept(payload)
         }
@@ -66,7 +69,7 @@ class PairViewModel(
 
     private fun accept(payload: PairingPayload) {
         if (coordinator.isExpired(payload)) {
-            _ui.update { it.copy(scanning = false, error = "That code has expired. Make a new one in the dashboard.") }
+            _ui.update { it.copy(scanning = false, error = UiText.of(R.string.pair_code_expired)) }
             return
         }
         _ui.update { it.copy(scanning = false, payload = payload, error = null, fromLink = false) }
@@ -84,7 +87,7 @@ class PairViewModel(
         viewModelScope.launch {
             when (val r = coordinator.pair(payload, label) { phase -> _ui.update { it.copy(phase = phase) } }) {
                 is PairResult.Success -> _ui.update { it.copy(done = true, phase = PairPhase.Done, alias = r.alias) }
-                is PairResult.Failure -> _ui.update { it.copy(error = r.message, recoverable = r.recoverable, phase = null) }
+                is PairResult.Failure -> _ui.update { it.copy(error = UiText.raw(r.message), recoverable = r.recoverable, phase = null) }
             }
         }
     }

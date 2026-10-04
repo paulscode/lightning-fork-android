@@ -8,6 +8,7 @@ import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import com.paulscode.lightningfork.R
 
 /** Biometric / device-credential unlock, degrading gracefully across API levels. */
 object BiometricGate {
@@ -43,7 +44,7 @@ object BiometricGate {
             },
         )
         val builder = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock Lightning Fork")
+            .setTitle(activity.getString(R.string.lock_prompt_title))
             .setAllowedAuthenticators(authenticators)
         prompt.authenticate(builder.build())
     }

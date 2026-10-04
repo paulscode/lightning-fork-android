@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pairing the phone with a node, and the screen that asks to pair again. -->
+<resources>
+    <string name="pair_scan_title">Scan the pairing code</string>
+    <string name="pair_scan_hint">In the dashboard: menu → Mobile app</string>
+
+    <string name="pair_tagline">Send and receive BTCB2 from your own node, on the BLAKE2b chain.</string>
+    <string name="pair_step_1">Open your Lightning Fork dashboard on your StartOS or Umbrel server.</string>
+    <string name="pair_step_2">In its menu, choose Mobile app, then Pair a phone.</string>
+    <string name="pair_step_3">Scan the code it shows.</string>
+    <string name="pair_scan_button">Scan pairing code</string>
+    <string name="pair_paste_button">Paste code</string>
+    <string name="pair_not_a_code">That isn\'t a pairing code. Open the dashboard\'s menu, choose Mobile app, and scan the code shown there.</string>
+    <string name="pair_code_expired">That code has expired. Make a new one in the dashboard.</string>
+
+    <string name="pair_confirm_title">Pair with your node</string>
+    <string name="pair_confirm_text">This phone gets a key of its own, which you can remove from the dashboard at any time.</string>
+    <string name="pair_from_link">This code came from a link. Pair only if you opened it from your own dashboard just now, and the addresses below are your node\'s.</string>
+    <string name="pair_local_address">Local address</string>
+    <string name="pair_local_ip">Local IP</string>
+    <string name="pair_tor">Tor</string>
+    <string name="pair_certificate">Certificate</string>
+    <string name="pair_name_label">Name this phone</string>
+    <string name="pair_name_placeholder">My phone</string>
+    <string name="pair_pair">Pair</string>
+    <string name="pair_scan_different">Scan a different code</string>
+
+    <string name="pair_phase_reaching">Reaching your node…</string>
+    <!-- %1$s: how far Tor has got, a percentage such as "45%". -->
+    <string name="pair_phase_starting_tor">Starting Tor… %1$s</string>
+    <string name="pair_phase_claiming">Pairing…</string>
+    <string name="pair_phase_paired">Paired</string>
+    <string name="pair_tor_first_start">Away from home, the phone reaches your node over Tor. The first start takes up to a minute.</string>
+
+    <string name="pair_removed_title">This phone was removed</string>
+    <string name="pair_removed_text">Your node no longer accepts this phone\'s key. It was removed in the dashboard, or the dashboard\'s list of phones was reset. Your funds are on your node and are not affected.</string>
+    <string name="pair_key_lost_title">This phone\'s key is gone</string>
+    <string name="pair_key_lost_text">Android no longer holds the key that protected this phone\'s access to your node, which happens when the screen lock is removed or the phone resets its keys. Pair the phone again. Your funds are on your node and are not affected.</string>
+    <string name="pair_certificate_changed_title">Your node\'s certificate changed</string>
+    <string name="pair_certificate_changed_text">Your node answers with a certificate other than the one this phone was paired with. That happens after the node is restored or moved to another server, or reinstalled. If none of that happened, something on this network may be in the way: try another network first. To use the node as it is now, pair again. Your funds are on your node and are not affected.</string>
+    <string name="pair_try_again">Try again</string>
+    <string name="pair_pair_again">Pair again</string>
+</resources>

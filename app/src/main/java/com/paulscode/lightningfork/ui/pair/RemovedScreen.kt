@@ -31,6 +31,8 @@ import com.paulscode.lightningfork.ui.theme.Page
 import com.paulscode.lightningfork.ui.theme.TextMuted
 import com.paulscode.lightningfork.ui.theme.TextPrimary
 import com.paulscode.lightningfork.ui.theme.Warning
+import androidx.compose.ui.res.stringResource
+import com.paulscode.lightningfork.R
 
 /** Why the phone must pair again; nothing is wiped until the user says so. */
 @Composable
@@ -40,12 +42,12 @@ fun RemovedScreen(
     onTryAgain: () -> Unit,
 ) {
     val (title, text) = when (reason) {
-        com.paulscode.lightningfork.wallet.Repair.Removed -> "This phone was removed" to
-            "Your node no longer accepts this phone's key. It was removed in the dashboard, or the dashboard's list of phones was reset. Your funds are on your node and are not affected."
-        com.paulscode.lightningfork.wallet.Repair.KeyLost -> "This phone's key is gone" to
-            "Android no longer holds the key that protected this phone's access to your node, which happens when the screen lock is removed or the phone resets its keys. Pair the phone again. Your funds are on your node and are not affected."
-        com.paulscode.lightningfork.wallet.Repair.CertificateChanged -> "Your node's certificate changed" to
-            "Your node answers with a certificate other than the one this phone was paired with. That happens after the node is restored or moved to another server, or reinstalled. If none of that happened, something on this network may be in the way: try another network first. To use the node as it is now, pair again. Your funds are on your node and are not affected."
+        com.paulscode.lightningfork.wallet.Repair.Removed ->
+            stringResource(R.string.pair_removed_title) to stringResource(R.string.pair_removed_text)
+        com.paulscode.lightningfork.wallet.Repair.KeyLost ->
+            stringResource(R.string.pair_key_lost_title) to stringResource(R.string.pair_key_lost_text)
+        com.paulscode.lightningfork.wallet.Repair.CertificateChanged ->
+            stringResource(R.string.pair_certificate_changed_title) to stringResource(R.string.pair_certificate_changed_text)
     }
     Column(Modifier.fillMaxSize().background(Page).statusBarsPadding().navigationBarsPadding().padding(28.dp)) {
         Column(
@@ -72,13 +74,13 @@ fun RemovedScreen(
         // A changed certificate may be the network, not the node: trying
         // again comes first there; pairing again wipes this phone's key.
         if (reason == com.paulscode.lightningfork.wallet.Repair.CertificateChanged) {
-            PrimaryButton("Try again", onClick = onTryAgain, modifier = Modifier.fillMaxWidth())
+            PrimaryButton(stringResource(R.string.pair_try_again), onClick = onTryAgain, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(10.dp))
-            SecondaryButton("Pair again", onClick = onPairAgain, modifier = Modifier.fillMaxWidth())
+            SecondaryButton(stringResource(R.string.pair_pair_again), onClick = onPairAgain, modifier = Modifier.fillMaxWidth())
         } else {
-            PrimaryButton("Pair again", onClick = onPairAgain, modifier = Modifier.fillMaxWidth())
+            PrimaryButton(stringResource(R.string.pair_pair_again), onClick = onPairAgain, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(10.dp))
-            SecondaryButton("Try again", onClick = onTryAgain, modifier = Modifier.fillMaxWidth())
+            SecondaryButton(stringResource(R.string.pair_try_again), onClick = onTryAgain, modifier = Modifier.fillMaxWidth())
         }
     }
 }

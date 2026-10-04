@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The licenses screen's own words; the license texts themselves stay as written. -->
+<resources>
+    <string name="about_licenses_title">Open-source licenses</string>
+    <string name="about_licenses_unreadable">The license notices could not be read.</string>
+</resources>

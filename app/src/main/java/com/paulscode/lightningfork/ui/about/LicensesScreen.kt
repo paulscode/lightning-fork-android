@@ -20,18 +20,21 @@ import androidx.compose.ui.unit.sp
 import com.paulscode.lightningfork.ui.components.TopBar
 import com.paulscode.lightningfork.ui.theme.Page
 import com.paulscode.lightningfork.ui.theme.TextMuted
+import androidx.compose.ui.res.stringResource
+import com.paulscode.lightningfork.R
 
 /** The notices and license texts of the software built into the app. */
 @Composable
 fun LicensesScreen(onClose: () -> Unit) {
     val context = LocalContext.current
-    val paragraphs = remember {
+    val unreadable = stringResource(R.string.about_licenses_unreadable)
+    val paragraphs = remember(unreadable) {
         runCatching { context.assets.open("licenses.txt").bufferedReader().use { it.readText() } }
-            .getOrDefault("The license notices could not be read.")
+            .getOrDefault(unreadable)
             .split("\n\n")
     }
     Column(Modifier.fillMaxSize().background(Page).statusBarsPadding().navigationBarsPadding()) {
-        TopBar("Open-source licenses", onBack = onClose)
+        TopBar(stringResource(R.string.about_licenses_title), onBack = onClose)
         LazyColumn(Modifier.weight(1f).padding(horizontal = 20.dp)) {
             items(paragraphs) { p ->
                 Text(

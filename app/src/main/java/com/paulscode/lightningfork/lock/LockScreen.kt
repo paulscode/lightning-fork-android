@@ -30,6 +30,7 @@ import com.paulscode.lightningfork.ui.components.PrimaryButton
 import com.paulscode.lightningfork.ui.theme.Page
 import com.paulscode.lightningfork.ui.theme.TextMuted
 import com.paulscode.lightningfork.ui.theme.TextPrimary
+import androidx.compose.ui.res.stringResource
 
 @Composable
 fun LockScreen(onUnlock: () -> Unit) {
@@ -50,11 +51,11 @@ fun LockScreen(onUnlock: () -> Unit) {
                 Image(painterResource(R.drawable.storm), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
             Spacer(Modifier.height(22.dp))
-            Text("Lightning Fork is locked", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
+            Text(stringResource(R.string.lock_title), style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
             Spacer(Modifier.height(6.dp))
-            Text("Unlock to see your balances and send.", style = MaterialTheme.typography.bodyMedium, color = TextMuted)
+            Text(stringResource(R.string.lock_text), style = MaterialTheme.typography.bodyMedium, color = TextMuted)
             Spacer(Modifier.weight(1f))
-            PrimaryButton("Unlock", onClick = onUnlock, icon = Icons.Rounded.Lock, modifier = Modifier.fillMaxWidth())
+            PrimaryButton(stringResource(R.string.lock_unlock), onClick = onUnlock, icon = Icons.Rounded.Lock, modifier = Modifier.fillMaxWidth())
         }
     }
 }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The lock screen and the unlock prompt. -->
+<resources>
+    <string name="lock_title">Lightning Fork is locked</string>
+    <string name="lock_text">Unlock to see your balances and send.</string>
+    <string name="lock_unlock">Unlock</string>
+    <string name="lock_prompt_title">Unlock Lightning Fork</string>
+</resources>

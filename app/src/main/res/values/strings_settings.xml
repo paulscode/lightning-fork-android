@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Settings screen. Sentences from the node or its dashboard are shown as they come. -->
+<resources>
+    <string name="settings_title">Settings</string>
+
+    <!-- Your node -->
+    <string name="settings_section_node">Your node</string>
+    <string name="settings_node_fallback_alias">Lightning Fork node</string>
+    <string name="settings_chain_blake2b">BLAKE2b chain</string>
+    <string name="settings_block_height">Block height</string>
+    <string name="settings_synced">Synced</string>
+    <string name="settings_synced_yes">Yes</string>
+    <string name="settings_synced_catching_up">Catching up</string>
+    <string name="settings_channels">Channels</string>
+    <string name="settings_version">Version</string>
+
+    <!-- Paying SHA256 invoices -->
+    <string name="settings_section_sha256">Paying SHA256 invoices</string>
+    <string name="settings_asking_node">Asking your node…</string>
+    <string name="settings_sha256_dashboard_too_old">Your dashboard is too old to pay SHA256 invoices. Update Lightning Fork on your node to use them.</string>
+    <string name="settings_sha256_not_set_up">Not set up. To pay SHA256 invoices from this phone, add a service in the dashboard, under Paying SHA256 invoices, with the code its operator gives you.</string>
+    <string name="settings_service">Service</string>
+    <!-- Shown as the service's name when it has none. -->
+    <string name="settings_service_set_up">Set up</string>
+    <string name="settings_allowed_above_market">Allowed above the market</string>
+    <string name="settings_reached">Reached</string>
+    <string name="settings_over_tor">Over Tor</string>
+    <string name="settings_right_now">Right now</string>
+    <string name="settings_service_not_answering">Not answering</string>
+    <string name="settings_service_no_sha256">Doesn\'t pay SHA256 invoices</string>
+    <string name="settings_service_not_paying">Not paying</string>
+    <string name="settings_service_paying">Paying</string>
+    <string name="settings_rate">Rate</string>
+    <!-- %1$s: BTCB2 for one BTC (SHA256), a number. -->
+    <string name="settings_rate_value">1 BTC (SHA256) ≈ %1$s BTCB2</string>
+    <string name="settings_fee">Fee</string>
+    <string name="settings_pays">Pays</string>
+    <!-- %1$s: the least, %2$s: the most the service pays, in sats; the count is the most. -->
+    <plurals name="settings_pays_range">
+        <item quantity="one">%1$s to %2$s sat (SHA256)</item>
+        <item quantity="other">%1$s to %2$s sats (SHA256)</item>
+    </plurals>
+    <string name="settings_market">Market</string>
+    <!-- %1$s: BTCB2 for one BTC (SHA256), a number. -->
+    <string name="settings_market_value">1 BTC (SHA256) ≈ %1$s BTCB2</string>
+    <!-- %1$s: BTCB2 for one BTC (SHA256), a number; %2$s: where the price comes from, as the node names it. -->
+    <string name="settings_market_value_source">1 BTC (SHA256) ≈ %1$s BTCB2, %2$s</string>
+    <string name="settings_asking_service">Asking the service…</string>
+    <string name="settings_check_terms">Check its terms now</string>
+    <string name="settings_check_again">Check again</string>
+    <string name="settings_cant_reach_node">Can\'t reach your node right now.</string>
+    <string name="settings_sha256_changed_in_dashboard">Changed only in the dashboard, under Paying SHA256 invoices.</string>
+    <string name="settings_sha256_how_it_works">How paying a SHA256 invoice works</string>
+
+    <!-- Connection -->
+    <string name="settings_section_connection">Connection</string>
+    <string name="settings_route_lan">On your local network</string>
+    <string name="settings_route_tor">Over Tor</string>
+    <string name="settings_route_none">Not connected yet</string>
+    <string name="settings_local_address">Local address</string>
+    <string name="settings_local_ip">Local IP</string>
+    <string name="settings_tor_address">Tor address</string>
+    <string name="settings_away_from_home">Away from home</string>
+    <string name="settings_not_set_up">Not set up</string>
+    <string name="settings_no_onion">Your node has no onion address yet, so the app reaches it only on your local network. The dashboard\'s Mobile app screen shows how to add one; the app picks it up the next time it connects at home.</string>
+    <string name="settings_tor">Tor</string>
+    <string name="settings_tor_stopped">Starts when needed</string>
+    <!-- %1$s: how far Tor has got, a percentage such as "45%". -->
+    <string name="settings_tor_starting">Starting… %1$s</string>
+    <string name="settings_tor_ready">Ready</string>
+    <string name="settings_tor_failed">Could not start</string>
+    <string name="settings_pinned_certificate">Pinned certificate</string>
+
+    <!-- Display -->
+    <string name="settings_section_display">Display</string>
+    <string name="settings_show_estimates">Show estimates</string>
+    <!-- %1$s: the currency estimates are in now, e.g. "Euro (EUR)". -->
+    <string name="settings_show_estimates_in">In %1$s, from the dashboard\'s price source</string>
+    <string name="settings_show_estimates_source">From the dashboard\'s price source</string>
+    <string name="settings_currency">Currency</string>
+    <string name="settings_currency_change">Choose a currency</string>
+    <string name="settings_currency_phone">Your phone\'s currency</string>
+    <!-- %1$s: the currency's name, %2$s: its code, e.g. "Euro (EUR)". -->
+    <string name="settings_currency_named">%1$s (%2$s)</string>
+    <!-- %1$s: the currency estimates are in now; %2$s: the one chosen, which the node can't quote now. -->
+    <string name="settings_currency_fallback">Estimates are shown in %1$s until your node can quote %2$s.</string>
+    <string name="settings_currency_dialog_title">Currency for estimates</string>
+    <string name="settings_currency_none">Your node can\'t quote any currency right now.</string>
+
+    <!-- Security -->
+    <string name="settings_section_security">Security</string>
+    <string name="settings_lock_app">Lock the app</string>
+    <string name="settings_lock_app_on_open">Ask for your fingerprint, face or screen lock when opening</string>
+    <string name="settings_lock_app_unavailable">Set a screen lock on this phone to use this</string>
+
+    <!-- This phone -->
+    <string name="settings_section_phone">This phone</string>
+    <string name="settings_name_on_node">Name on your node</string>
+    <string name="settings_remove_phone_hint">Remove this phone from your node in the dashboard (menu → Mobile app), or unpair it here.</string>
+    <string name="settings_unpair_phone">Unpair this phone</string>
+    <string name="settings_unpair_title">Unpair this phone?</string>
+    <string name="settings_unpair_text">The phone forgets your node and its key, and asks your node to remove it. Your funds stay on your node. To use the app again, pair it from the dashboard.</string>
+    <string name="settings_unpair">Unpair</string>
+    <string name="settings_cancel">Cancel</string>
+
+    <!-- About -->
+    <string name="settings_section_about">About</string>
+    <string name="settings_app_version">App version</string>
+    <string name="settings_licenses">Open-source licenses</string>
+</resources>

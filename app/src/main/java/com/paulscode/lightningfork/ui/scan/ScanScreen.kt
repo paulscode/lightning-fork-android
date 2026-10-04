@@ -51,6 +51,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.compose.ui.res.stringResource
+import com.paulscode.lightningfork.R
 import com.paulscode.lightningfork.ui.components.PrimaryButton
 import com.paulscode.lightningfork.ui.components.SecondaryButton
 import com.paulscode.lightningfork.ui.theme.Accent
@@ -103,10 +105,10 @@ fun ScanScreen(
             ) {
                 Icon(Icons.Rounded.PhotoCamera, contentDescription = null, tint = Accent, modifier = Modifier.size(48.dp))
                 Spacer(Modifier.height(16.dp))
-                Text("Camera access is off", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
+                Text(stringResource(R.string.scan_camera_off), style = MaterialTheme.typography.titleLarge, color = TextPrimary)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    if (asked) "Allow the camera to scan codes, or paste instead." else "Allow the camera to scan codes.",
+                    stringResource(if (asked) R.string.scan_allow_or_paste else R.string.scan_allow),
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextMuted,
                     textAlign = TextAlign.Center,
@@ -118,7 +120,7 @@ fun ScanScreen(
                 val blocked = asked && activity != null &&
                     !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.CAMERA)
                 PrimaryButton(
-                    if (blocked) "Open settings" else "Allow camera",
+                    stringResource(if (blocked) R.string.scan_open_settings else R.string.scan_allow_camera),
                     onClick = {
                         if (blocked) {
                             context.startActivity(
@@ -140,7 +142,7 @@ fun ScanScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onClose, modifier = Modifier.clip(CircleShape).background(Color(0x66000000))) {
-                Icon(Icons.Rounded.Close, contentDescription = "Close", tint = Color.White)
+                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.scan_close), tint = Color.White)
             }
             Text(
                 title,
@@ -159,7 +161,7 @@ fun ScanScreen(
                 ) {
                     Icon(
                         if (torch) Icons.Rounded.FlashlightOn else Icons.Rounded.FlashlightOff,
-                        contentDescription = if (torch) "Torch off" else "Torch on",
+                        contentDescription = stringResource(if (torch) R.string.scan_torch_off else R.string.scan_torch_on),
                         tint = Color.White,
                     )
                 }
@@ -176,7 +178,7 @@ fun ScanScreen(
                 Spacer(Modifier.height(18.dp))
             }
             if (onPaste != null) {
-                SecondaryButton("Paste instead", onClick = onPaste, icon = Icons.Rounded.ContentPaste, modifier = Modifier.fillMaxWidth())
+                SecondaryButton(stringResource(R.string.scan_paste_instead), onClick = onPaste, icon = Icons.Rounded.ContentPaste, modifier = Modifier.fillMaxWidth())
             }
         }
     }

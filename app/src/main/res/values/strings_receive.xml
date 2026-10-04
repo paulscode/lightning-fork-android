@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="receive_title">Receive</string>
+    <string name="receive_tab_onchain">On-chain</string>
+    <string name="receive_request_title">Request a payment</string>
+    <string name="receive_request_hint">Leave the amount empty to let the payer choose it.</string>
+    <string name="receive_any_amount">Any amount</string>
+    <string name="receive_description_label">Description (optional)</string>
+    <string name="receive_description_placeholder">What\'s it for?</string>
+    <!-- %1$s: an amount with its unit. -->
+    <string name="receive_can_receive_up_to">You can receive up to %1$s over Lightning.</string>
+    <string name="receive_create_invoice">Create invoice</string>
+    <string name="receive_qr_invoice">QR code of the invoice</string>
+    <string name="receive_expired">Expired</string>
+    <!-- The invoice's description, quoted. -->
+    <string name="receive_memo_quoted">“%1$s”</string>
+    <!-- Beside a spinner; the leading spaces keep it apart from it. %1$s: time left, e.g. "59:30". -->
+    <string name="receive_waiting_expires_in">"  Waiting for payment · expires in %1$s"</string>
+    <string name="receive_create_new_invoice">Create a new invoice</string>
+    <string name="receive_new_invoice">New invoice</string>
+    <string name="receive_received">Received</string>
+    <string name="receive_done">Done</string>
+    <string name="receive_request_another">Request another</string>
+    <string name="receive_qr_address">QR code of the address</string>
+    <string name="receive_payment_arriving">Payment of %1$s arriving. It is spendable once it confirms.</string>
+    <string name="receive_amount_to_ask">Amount to ask for (optional)</string>
+    <string name="receive_add_amount">Add an amount</string>
+    <string name="receive_new_address">New address</string>
+    <string name="receive_onchain_note">BTCB2 sent here takes a block or more to confirm. For instant payments, use Lightning.</string>
+    <string name="receive_copied">Copied</string>
+    <string name="receive_copy">Copy</string>
+    <string name="receive_share">Share</string>
+    <!-- Clipboard labels: what was copied. -->
+    <string name="receive_clip_invoice">invoice</string>
+    <string name="receive_clip_address">address</string>
+    <string name="receive_error_amount_invalid">That amount isn\'t valid.</string>
+    <string name="receive_error_invoice_unreachable">Can\'t reach your node to make an invoice.</string>
+    <string name="receive_error_address_unreachable">Can\'t reach your node to get an address.</string>
+</resources>

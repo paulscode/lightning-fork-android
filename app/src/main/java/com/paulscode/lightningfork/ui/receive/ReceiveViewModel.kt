@@ -2,6 +2,7 @@ package com.paulscode.lightningfork.ui.receive
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.paulscode.lightningfork.R
 import com.paulscode.lightningfork.data.AmountUnit
 import com.paulscode.lightningfork.data.SettingsStore
 import com.paulscode.lightningfork.net.AddressResponse
@@ -9,6 +10,7 @@ import com.paulscode.lightningfork.net.ApiException
 import com.paulscode.lightningfork.net.InvoiceRequest
 import com.paulscode.lightningfork.net.InvoiceResponse
 import com.paulscode.lightningfork.net.NodeApi
+import com.paulscode.lightningfork.ui.text.UiText
 import com.paulscode.lightningfork.util.Format
 import com.paulscode.lightningfork.wallet.WalletRepository
 import kotlinx.coroutines.Job
@@ -40,7 +42,8 @@ data class ReceiveUi(
     val onchainAmountText: String = "",
     /** Unconfirmed sats that arrived while the screen was open. */
     val incomingSat: Long = 0,
-    val error: String? = null,
+    /** The app's own sentence, or the node's as it came. */
+    val error: UiText? = null,
 ) {
     /** What the on-chain QR code carries: the address, with an amount if one is set. */
     val onchainUri: String?
@@ -96,7 +99,7 @@ class ReceiveViewModel(
         if (s.creating) return
         val amount = if (s.amountText.isBlank()) null else Format.parseAmount(s.amountText, s.unit)
         if (s.amountText.isNotBlank() && (amount == null || amount <= 0)) {
-            _ui.update { it.copy(error = "That amount isn't valid.") }
+            _ui.update { it.copy(error = UiText.of(R.string.receive_error_amount_invalid)) }
             return
         }
         _ui.update { it.copy(creating = true, error = null) }
@@ -106,9 +109,9 @@ class ReceiveViewModel(
                 _ui.update { it.copy(creating = false, invoice = inv, invoiceState = "open", paidSat = 0) }
                 watchInvoice(inv)
             } catch (e: ApiException) {
-                _ui.update { it.copy(creating = false, error = e.message) }
+                _ui.update { it.copy(creating = false, error = e.message?.let(UiText::raw)) }
             } catch (e: Exception) {
-                _ui.update { it.copy(creating = false, error = "Can't reach your node to make an invoice.") }
+                _ui.update { it.copy(creating = false, error = UiText.of(R.string.receive_error_invoice_unreachable)) }
             }
         }
     }
@@ -158,9 +161,9 @@ class ReceiveViewModel(
                 val a = api.address(fresh)
                 _ui.update { it.copy(address = a, loadingAddress = false) }
             } catch (e: ApiException) {
-                _ui.update { it.copy(loadingAddress = false, error = e.message) }
+                _ui.update { it.copy(loadingAddress = false, error = e.message?.let(UiText::raw)) }
             } catch (e: Exception) {
-                _ui.update { it.copy(loadingAddress = false, error = "Can't reach your node to get an address.") }
+                _ui.update { it.copy(loadingAddress = false, error = UiText.of(R.string.receive_error_address_unreachable)) }
             }
         }
     }

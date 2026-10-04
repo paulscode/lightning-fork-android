@@ -41,11 +41,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import com.paulscode.lightningfork.R
 import com.paulscode.lightningfork.data.AmountUnit
 import com.paulscode.lightningfork.net.ActivityItem
 import com.paulscode.lightningfork.net.ApiException
@@ -65,7 +67,9 @@ import com.paulscode.lightningfork.ui.theme.TextFaint
 import com.paulscode.lightningfork.ui.theme.TextMuted
 import com.paulscode.lightningfork.ui.theme.TextPrimary
 import com.paulscode.lightningfork.ui.theme.Warning
+import com.paulscode.lightningfork.ui.text.UiText
 import com.paulscode.lightningfork.ui.text.text
+import com.paulscode.lightningfork.ui.text.textOrNull
 import com.paulscode.lightningfork.util.Clipboard
 import com.paulscode.lightningfork.util.Coin
 import com.paulscode.lightningfork.util.Format
@@ -76,7 +80,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ActivityScreen(api: NodeApi, unit: AmountUnit, onClose: () -> Unit) {
     var items by remember { mutableStateOf<List<ActivityItem>?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<UiText?>(null) }
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -85,9 +89,9 @@ fun ActivityScreen(api: NodeApi, unit: AmountUnit, onClose: () -> Unit) {
             items = api.activity(60).items
             error = null
         } catch (e: ApiException) {
-            error = e.message
+            error = e.message?.let(UiText::raw)
         } catch (e: Exception) {
-            error = "Can't reach your node right now."
+            error = UiText.of(R.string.activityscreen_unreachable)
         }
     }
     LaunchedEffect(Unit) { load() }
@@ -101,7 +105,7 @@ fun ActivityScreen(api: NodeApi, unit: AmountUnit, onClose: () -> Unit) {
     }
 
     Column(Modifier.fillMaxSize().background(Page).statusBarsPadding().navigationBarsPadding()) {
-        TopBar("Activity", onBack = onClose)
+        TopBar(stringResource(R.string.activityscreen_title), onBack = onClose)
         PullToRefreshBox(
             isRefreshing = refreshing,
             onRefresh = {
@@ -119,10 +123,10 @@ fun ActivityScreen(api: NodeApi, unit: AmountUnit, onClose: () -> Unit) {
                     CircularProgressIndicator(color = Accent)
                 }
                 list.isNullOrEmpty() -> Column(Modifier.fillMaxSize().padding(24.dp)) {
-                    Notice(error)
+                    Notice(error.textOrNull())
                     if (error == null) {
                         Text(
-                            "Nothing yet. Payments you send and receive show up here.",
+                            stringResource(R.string.activityscreen_empty),
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextMuted,
                             textAlign = TextAlign.Center,
@@ -131,7 +135,7 @@ fun ActivityScreen(api: NodeApi, unit: AmountUnit, onClose: () -> Unit) {
                     }
                 }
                 else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
-                    if (error != null) item { Notice(error, modifier = Modifier.padding(bottom = 12.dp)) }
+                    if (error != null) item { Notice(error.textOrNull(), modifier = Modifier.padding(bottom = 12.dp)) }
                     items(list, key = { it.id }) { item ->
                         ActivityRow(item, unit)
                         HorizontalDivider(color = Border)
@@ -148,12 +152,14 @@ private fun ActivityRow(item: ActivityItem, unit: AmountUnit) {
     val bitcoin = item.bitcoinInvoice
     // A Bitcoin invoice opens to its details: what it paid, and the proof.
     var open by remember { mutableStateOf(false) }
+    val clickLabel = stringResource(if (open) R.string.activityscreen_hide_details else R.string.activityscreen_show_details)
+    val expandedState = stringResource(if (open) R.string.activityscreen_expanded else R.string.activityscreen_collapsed)
     Column(
         if (bitcoin != null) {
             Modifier
                 .fillMaxWidth()
-                .clickable(onClickLabel = if (open) "Hide details" else "Show details") { open = !open }
-                .semantics { stateDescription = if (open) "Expanded" else "Collapsed" }
+                .clickable(onClickLabel = clickLabel) { open = !open }
+                .semantics { stateDescription = expandedState }
         } else Modifier.fillMaxWidth(),
     ) {
         Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -200,7 +206,10 @@ private fun ActivityRow(item: ActivityItem, unit: AmountUnit) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    (if (incoming) "+" else "−") + Format.amountWithUnit(item.amountSat, unit, if (bitcoin != null) Coin.Btcb2 else null),
+                    stringResource(
+                        if (incoming) R.string.activityscreen_amount_in else R.string.activityscreen_amount_out,
+                        Format.amountWithUnit(item.amountSat, unit, if (bitcoin != null) Coin.Btcb2 else null),
+                    ),
                     style = MaterialTheme.typography.titleSmall,
                     color = when {
                         ActivityLabels.didNotMove(item) -> TextFaint
@@ -209,9 +218,9 @@ private fun ActivityRow(item: ActivityItem, unit: AmountUnit) {
                     },
                 )
                 if (bitcoin != null) {
-                    Text("paid ${Format.amountWithUnit(bitcoin.amountSat, unit, Coin.Sha256)}", style = MaterialTheme.typography.bodySmall, color = TextFaint)
+                    Text(stringResource(R.string.activityscreen_paid, Format.amountWithUnit(bitcoin.amountSat, unit, Coin.Sha256)), style = MaterialTheme.typography.bodySmall, color = TextFaint)
                 } else if (!incoming && item.feeSat > 0) {
-                    Text("fee ${Format.amountWithUnit(item.feeSat, unit)}", style = MaterialTheme.typography.bodySmall, color = TextFaint)
+                    Text(stringResource(R.string.activityscreen_fee, Format.amountWithUnit(item.feeSat, unit)), style = MaterialTheme.typography.bodySmall, color = TextFaint)
                 }
             }
         }
@@ -229,32 +238,33 @@ private fun BitcoinInvoiceDetails(item: ActivityItem, unit: AmountUnit) {
     val context = LocalContext.current
     Column(Modifier.fillMaxWidth().padding(start = 54.dp, bottom = 12.dp)) {
         val about = bitcoin.description.ifBlank { item.description }
-        if (about.isNotBlank()) InfoRow("Description", about)
-        InfoRow("Paid on the SHA256 chain", Format.amountWithUnit(bitcoin.amountSat, unit, Coin.Sha256))
-        InfoRow("Cost", Format.amountWithUnit(item.amountSat, unit, Coin.Btcb2))
-        if (item.feeSat > 0) InfoRow("Routing fee", Format.amountWithUnit(item.feeSat, unit, Coin.Btcb2))
-        InfoRow("Total", Format.amountWithUnit(item.amountSat + item.feeSat, unit, Coin.Btcb2), emphasize = true)
-        if (bitcoin.serviceLabel.isNotBlank()) InfoRow("Service", bitcoin.serviceLabel)
+        if (about.isNotBlank()) InfoRow(stringResource(R.string.activityscreen_description), about)
+        InfoRow(stringResource(R.string.activityscreen_paid_on_sha256), Format.amountWithUnit(bitcoin.amountSat, unit, Coin.Sha256))
+        InfoRow(stringResource(R.string.activityscreen_cost), Format.amountWithUnit(item.amountSat, unit, Coin.Btcb2))
+        if (item.feeSat > 0) InfoRow(stringResource(R.string.activityscreen_routing_fee), Format.amountWithUnit(item.feeSat, unit, Coin.Btcb2))
+        InfoRow(stringResource(R.string.activityscreen_total), Format.amountWithUnit(item.amountSat + item.feeSat, unit, Coin.Btcb2), emphasize = true)
+        if (bitcoin.serviceLabel.isNotBlank()) InfoRow(stringResource(R.string.activityscreen_service), bitcoin.serviceLabel)
         InfoRow(
-            "Status",
+            stringResource(R.string.activityscreen_status),
             when (bitcoin.state) {
-                "paid" -> "Paid"
-                "pending" -> "On its way"
-                "returned" -> "Came back, nothing was paid"
+                "paid" -> stringResource(R.string.activityscreen_status_paid)
+                "pending" -> stringResource(R.string.activityscreen_status_on_its_way)
+                "returned" -> stringResource(R.string.activityscreen_status_returned)
                 else -> bitcoin.state
             },
         )
         val proof = item.preimage
+        val clipLabel = stringResource(R.string.activityscreen_clip_preimage)
         if (!proof.isNullOrBlank()) {
             Row(
-                Modifier.fillMaxWidth().clickable { Clipboard.copySensitive(context, proof, "preimage") }.padding(vertical = 7.dp),
+                Modifier.fillMaxWidth().clickable { Clipboard.copySensitive(context, proof, clipLabel) }.padding(vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Proof of payment", style = MaterialTheme.typography.bodyMedium, color = TextMuted)
+                Text(stringResource(R.string.activityscreen_proof), style = MaterialTheme.typography.bodyMedium, color = TextMuted)
                 Spacer(Modifier.weight(1f))
                 Text(Format.middle(proof, 8, 8), style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace), color = TextPrimary)
                 Spacer(Modifier.width(8.dp))
-                Icon(Icons.Rounded.ContentCopy, contentDescription = "Copy", tint = Accent, modifier = Modifier.size(18.dp))
+                Icon(Icons.Rounded.ContentCopy, contentDescription = stringResource(R.string.activityscreen_copy), tint = Accent, modifier = Modifier.size(18.dp))
             }
         }
     }

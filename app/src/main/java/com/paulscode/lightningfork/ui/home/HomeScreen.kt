@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -143,7 +144,7 @@ fun HomeScreen(
                     Notice(
                         when {
                             state.error != null && state.wallet != null && state.updatedAtMs > 0 ->
-                                "${state.error} Showing balances from ${Format.ago(state.updatedAtMs / 1000, now)}."
+                                stringResource(R.string.home_error_showing_balances_from, state.error, Format.ago(state.updatedAtMs / 1000, now))
                             state.error != null -> state.error
                             else -> null
                         },
@@ -155,9 +156,10 @@ fun HomeScreen(
                         Spacer(Modifier.height(14.dp))
                     }
                     val w = state.wallet
+                    val unconfirmedLine = stringResource(R.string.home_onchain_unconfirmed, Format.amountWithUnit(w?.onchain?.unconfirmedSat ?: 0, unit))
                     BalanceCard(
-                        title = "On-chain",
-                        caption = "Confirmed",
+                        title = stringResource(R.string.home_onchain_title),
+                        caption = stringResource(R.string.home_onchain_caption),
                         mark = { BitcoinMark() },
                         sats = w?.onchain?.confirmedSat,
                         unit = unit,
@@ -165,13 +167,15 @@ fun HomeScreen(
                         fiat = w?.onchain?.confirmedSat?.let { Format.fiat(it, state.fiatPrice, state.fiatCurrency) },
                         lines = buildList {
                             val incoming = w?.onchain?.unconfirmedSat ?: 0
-                            if (incoming > 0) add("${Format.amountWithUnit(incoming, unit)} unconfirmed" to Warning)
+                            if (incoming > 0) add(unconfirmedLine to Warning)
                         },
                     )
                     Spacer(Modifier.height(14.dp))
+                    val openingLine = stringResource(R.string.home_lightning_opening, Format.amountWithUnit(w?.lightning?.pendingOutboundSat ?: 0, unit))
+                    val canReceiveLine = w?.lightning?.inboundSat?.let { stringResource(R.string.home_lightning_can_receive, Format.amountWithUnit(it, unit)) }
                     BalanceCard(
                         title = "Lightning",
-                        caption = "Ready to send",
+                        caption = stringResource(R.string.home_lightning_caption),
                         mark = { LightningMark() },
                         sats = w?.lightning?.outboundSat,
                         unit = unit,
@@ -179,15 +183,13 @@ fun HomeScreen(
                         fiat = w?.lightning?.outboundSat?.let { Format.fiat(it, state.fiatPrice, state.fiatCurrency) },
                         lines = buildList {
                             val opening = w?.lightning?.pendingOutboundSat ?: 0
-                            if (opening > 0) add("${Format.amountWithUnit(opening, unit)} in channels opening" to Warning)
-                            w?.lightning?.inboundSat?.let {
-                                add("Can receive ${Format.amountWithUnit(it, unit)}" to TextMuted)
-                            }
+                            if (opening > 0) add(openingLine to Warning)
+                            canReceiveLine?.let { add(it to TextMuted) }
                         },
                     )
                     AnimatedVisibility(stale && state.error == null, enter = fadeIn(), exit = fadeOut()) {
                         Text(
-                            "Updated ${Format.ago(state.updatedAtMs / 1000, now)}",
+                            stringResource(R.string.home_updated, Format.ago(state.updatedAtMs / 1000, now)),
                             style = MaterialTheme.typography.bodySmall,
                             color = TextFaint,
                             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
@@ -196,7 +198,7 @@ fun HomeScreen(
                     }
                     if (w != null && !w.syncedToChain) {
                         Notice(
-                            "Your node is still catching up with the chain; balances may be behind.",
+                            stringResource(R.string.home_catching_up),
                             kind = NoticeKind.Info,
                             modifier = Modifier.padding(top = 14.dp),
                         )
@@ -211,14 +213,14 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 SecondaryButton(
-                    "Receive",
+                    stringResource(R.string.home_receive),
                     onClick = onReceive,
                     icon = Icons.Rounded.CallReceived,
                     modifier = Modifier.weight(1f),
                     height = 76.dp,
                 )
                 PrimaryButton(
-                    "Send",
+                    stringResource(R.string.home_send),
                     onClick = onSend,
                     icon = Icons.Rounded.CallMade,
                     modifier = Modifier.weight(1f),
@@ -275,16 +277,16 @@ private fun Header(state: WalletState, onActivity: () -> Unit, onSettings: () ->
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("Lightning Fork", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium, color = TextPrimary)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ConnectionDot(state.connection, state.refreshing)
                 Spacer(Modifier.width(6.dp))
                 val where = when (state.connection) {
-                    Connection.Lan -> "Local network"
+                    Connection.Lan -> stringResource(R.string.home_connection_lan)
                     Connection.Tor -> "Tor"
                     Connection.Connecting, Connection.Offline ->
-                        if (torStarting != null) "Starting Tor… $torStarting%"
-                        else if (state.connection == Connection.Connecting) "Connecting…" else "Not connected"
+                        if (torStarting != null) stringResource(R.string.home_connection_starting_tor, torStarting)
+                        else if (state.connection == Connection.Connecting) stringResource(R.string.home_connection_connecting) else stringResource(R.string.home_connection_offline)
                 }
                 val alias = state.node?.alias?.takeIf { it.isNotBlank() }
                 Text(
@@ -296,10 +298,10 @@ private fun Header(state: WalletState, onActivity: () -> Unit, onSettings: () ->
             }
         }
         IconButton(onClick = onActivity) {
-            Icon(Icons.Rounded.History, contentDescription = "Activity", tint = TextPrimary)
+            Icon(Icons.Rounded.History, contentDescription = stringResource(R.string.home_activity), tint = TextPrimary)
         }
         IconButton(onClick = onSettings) {
-            Icon(Icons.Rounded.Settings, contentDescription = "Settings", tint = TextPrimary)
+            Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.home_settings), tint = TextPrimary)
         }
     }
 }
@@ -344,7 +346,7 @@ private fun BalanceCard(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 role = Role.Button,
-                onClickLabel = "Switch between sats and BTC",
+                onClickLabel = stringResource(R.string.common_switch_unit),
                 onClick = onToggleUnit,
             )
             .padding(20.dp),
@@ -427,30 +429,36 @@ private fun PendingSendCard(p: com.paulscode.lightningfork.net.PendingSend, unit
             .clip(shape)
             .background(Warning.copy(alpha = 0.12f))
             .border(BorderStroke(1.dp, Warning.copy(alpha = 0.35f)), shape)
-            .clickable(onClickLabel = "Check this payment", onClick = onCheck)
+            .clickable(onClickLabel = stringResource(R.string.home_pending_check_label), onClick = onCheck)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text("A payment didn't finish", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+            Text(stringResource(R.string.home_pending_title), style = MaterialTheme.typography.titleSmall, color = TextPrimary)
             Text(
                 if (p.bitcoinInvoice != null) {
-                    "A SHA256 invoice, for at most ${Format.amountWithUnit(p.amountSat, unit, com.paulscode.lightningfork.util.Coin.Btcb2)}${ageOf(p)}. Check whether it went through."
+                    val most = Format.amountWithUnit(p.amountSat, unit, com.paulscode.lightningfork.util.Coin.Btcb2)
+                    val since = startedAgo(p)
+                    if (since != null) stringResource(R.string.home_pending_sha256_since, most, since)
+                    else stringResource(R.string.home_pending_sha256, most)
                 } else {
-                    "${Format.amountWithUnit(p.amountSat, unit)} ${if (p.lightning) "over Lightning" else "on-chain"}. Check whether it went through."
+                    stringResource(
+                        if (p.lightning) R.string.home_pending_lightning else R.string.home_pending_onchain,
+                        Format.amountWithUnit(p.amountSat, unit),
+                    )
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = TextMuted,
             )
         }
         Spacer(Modifier.width(12.dp))
-        Text("Check", style = MaterialTheme.typography.labelLarge, color = Accent)
+        Text(stringResource(R.string.home_pending_check), style = MaterialTheme.typography.labelLarge, color = Accent)
     }
 }
 
-/** When an unfinished payment started, if not today: ", from 3 d ago". */
-private fun ageOf(p: com.paulscode.lightningfork.net.PendingSend): String {
-    if (p.startedAtMs <= 0) return ""
+/** When an unfinished payment started, if not today ("3 d ago"), else null. */
+private fun startedAgo(p: com.paulscode.lightningfork.net.PendingSend): String? {
+    if (p.startedAtMs <= 0) return null
     val ageMs = System.currentTimeMillis() - p.startedAtMs
-    return if (ageMs < 12 * 3600_000L) "" else ", from ${Format.ago(p.startedAtMs / 1000)}"
+    return if (ageMs < 12 * 3600_000L) null else Format.ago(p.startedAtMs / 1000)
 }

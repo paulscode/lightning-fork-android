@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="activityscreen_title">Activity</string>
+    <string name="activityscreen_unreachable">Can\'t reach your node right now.</string>
+    <string name="activityscreen_empty">Nothing yet. Payments you send and receive show up here.</string>
+    <string name="activityscreen_hide_details">Hide details</string>
+    <string name="activityscreen_show_details">Show details</string>
+    <string name="activityscreen_expanded">Expanded</string>
+    <string name="activityscreen_collapsed">Collapsed</string>
+    <!-- An amount with its unit, received / sent. -->
+    <string name="activityscreen_amount_in">+%1$s</string>
+    <string name="activityscreen_amount_out">−%1$s</string>
+    <!-- What a SHA256 invoice paid, with its unit. -->
+    <string name="activityscreen_paid">paid %1$s</string>
+    <string name="activityscreen_fee">fee %1$s</string>
+    <string name="activityscreen_description">Description</string>
+    <string name="activityscreen_paid_on_sha256">Paid on the SHA256 chain</string>
+    <string name="activityscreen_cost">Cost</string>
+    <string name="activityscreen_routing_fee">Routing fee</string>
+    <string name="activityscreen_total">Total</string>
+    <string name="activityscreen_service">Service</string>
+    <string name="activityscreen_status">Status</string>
+    <string name="activityscreen_status_paid">Paid</string>
+    <string name="activityscreen_status_on_its_way">On its way</string>
+    <string name="activityscreen_status_returned">Came back, nothing was paid</string>
+    <string name="activityscreen_proof">Proof of payment</string>
+    <string name="activityscreen_copy">Copy</string>
+    <!-- Clipboard label for the proof of payment. -->
+    <string name="activityscreen_clip_preimage">preimage</string>
+</resources>

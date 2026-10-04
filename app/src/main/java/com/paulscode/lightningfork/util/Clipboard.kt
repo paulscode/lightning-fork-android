@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.PersistableBundle
+import com.paulscode.lightningfork.R
 
 /**
  * Clipboard copies. Sensitive values (a payment's preimage) are marked so they
@@ -13,7 +14,7 @@ object Clipboard {
     private fun manager(context: Context): ClipboardManager =
         context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
-    fun copySensitive(context: Context, text: String, label: String = "value") {
+    fun copySensitive(context: Context, text: String, label: String = context.getString(R.string.common_clip_value)) {
         val clip = ClipData.newPlainText(label, text).apply {
             // Keep secrets out of clipboard previews / history where supported (13+).
             description.extras = PersistableBundle().apply {
@@ -24,7 +25,7 @@ object Clipboard {
     }
 
     /** Copy something meant to be shared, such as an invoice or an address. */
-    fun copyPlain(context: Context, text: String, label: String = "text") {
+    fun copyPlain(context: Context, text: String, label: String = context.getString(R.string.common_clip_text)) {
         manager(context).setPrimaryClip(ClipData.newPlainText(label, text))
     }
 

@@ -409,14 +409,14 @@ class SendViewModel(
                             res.preimage,
                             bitcoinAmountSat = res.bitcoinInvoice?.amountSat?.takeIf { it > 0 } ?: pending.bitcoinAmountSat,
                         )
-                        "failed" -> throw ApiException(400, PAYMENT_FAILED)
+                        "failed" -> throw ApiException(400, PAYMENT_FAILED, code = PAYMENT_FAILED_CODE)
                         else -> throw java.io.IOException("payment ${res.status}")
                     }
                 } else {
                     val res = api.pay(if (again) pending.pay!!.copy(resume = true) else pending.pay!!)
                     when (res.status) {
                         "succeeded" -> SendResult(true, res.amountSat.takeIf { it > 0 } ?: pending.amountSat, res.feeSat, res.preimage)
-                        "failed" -> throw ApiException(400, PAYMENT_FAILED)
+                        "failed" -> throw ApiException(400, PAYMENT_FAILED, code = PAYMENT_FAILED_CODE)
                         else -> throw java.io.IOException("payment ${res.status}")
                     }
                 }
@@ -570,10 +570,10 @@ class SendViewModel(
 
     /** The node's own words, or the app's when it said the payment failed. */
     private fun errorText(e: ApiException): UiText =
-        if (e.code == null && e.message == PAYMENT_FAILED) UiText.of(R.string.send_payment_failed) else UiText.raw(e.message)
+        if (e.code == PAYMENT_FAILED_CODE) UiText.of(R.string.send_payment_failed) else UiText.raw(e.message)
 
     private fun keyText(e: com.paulscode.lightningfork.net.KeyUnavailableException): UiText =
-        UiText.of(if (e.lost) R.string.send_key_lost else R.string.send_key_unavailable)
+        UiText.of(if (e.lost) R.string.app_key_lost else R.string.app_key_unavailable)
 
     /**
      * After a failure: an uncertain send is asked about again, unchanged; a
@@ -613,5 +613,8 @@ class SendViewModel(
 
         /** The app's own word for a payment the node says failed; shown as send_payment_failed. */
         const val PAYMENT_FAILED = "The payment failed."
+
+        /** The node answered a payment as failed: the app's own code for it, never the node's. */
+        const val PAYMENT_FAILED_CODE = "app_payment_failed"
     }
 }

@@ -654,8 +654,10 @@ private fun FeeSelector(ui: SendUi, vm: SendViewModel) {
                     .padding(vertical = 12.dp, horizontal = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                // The levels' names and times are the app's own, in the
+                // phone's language; the node's rates are what it gives.
                 Text(
-                    rate?.label ?: stringResource(
+                    stringResource(
                         when (level) {
                             FeeLevel.Low -> R.string.send_fee_low
                             FeeLevel.Medium -> R.string.send_fee_medium
@@ -670,7 +672,13 @@ private fun FeeSelector(ui: SendUi, vm: SendViewModel) {
                     color = if (selected) Accent else TextPrimary,
                 )
                 Text(
-                    rate?.eta?.replace("About ", "~") ?: "",
+                    stringResource(
+                        when (level) {
+                            FeeLevel.Low -> R.string.send_fee_eta_low
+                            FeeLevel.Medium -> R.string.send_fee_eta_medium
+                            FeeLevel.High -> R.string.send_fee_eta_high
+                        },
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextFaint,
                     textAlign = TextAlign.Center,
@@ -680,7 +688,11 @@ private fun FeeSelector(ui: SendUi, vm: SendViewModel) {
     }
     fees?.source?.let {
         Text(
-            stringResource(R.string.send_rates_from, it.name),
+            when (it.kind) {
+                "node" -> stringResource(R.string.send_rates_from_node)
+                "minimum" -> stringResource(R.string.send_rates_from_minimum)
+                else -> stringResource(R.string.send_rates_from, it.name)
+            },
             style = MaterialTheme.typography.bodySmall,
             color = TextFaint,
             modifier = Modifier.padding(top = 8.dp, start = 4.dp),

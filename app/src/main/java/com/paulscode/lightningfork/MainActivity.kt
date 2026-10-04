@@ -330,7 +330,12 @@ class MainActivity : FragmentActivity() {
     private fun PairFlow(onPaired: () -> Unit) {
         val vm: PairViewModel = viewModel(factory = viewModelFactory {
             initializer {
-                PairViewModel(container.pairing, container.tor, defaultLabel = Build.MODEL ?: getString(R.string.app_default_device_label))
+                PairViewModel(
+                    container.pairing,
+                    container.tor,
+                    defaultLabel = Build.MODEL ?: getString(R.string.app_default_device_label),
+                    fallbackLabel = getString(R.string.app_default_device_label),
+                )
             }
         })
         val ui by vm.ui.collectAsStateWithLifecycle()

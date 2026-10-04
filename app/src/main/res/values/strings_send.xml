@@ -125,6 +125,11 @@
     <string name="send_sat_per_vb">%1$s sat/vB</string>
     <!-- %1$s: where the fee rates come from. -->
     <string name="send_rates_from">Rates from %1$s</string>
+    <string name="send_rates_from_node">Rates from your node\'s estimate</string>
+    <string name="send_rates_from_minimum">The lowest rates the network relays</string>
+    <string name="send_fee_eta_low">~an hour</string>
+    <string name="send_fee_eta_medium">~30 minutes</string>
+    <string name="send_fee_eta_high">~10 minutes</string>
 
     <!-- Sending -->
     <string name="send_getting_price">Getting the price…</string>
@@ -180,8 +185,6 @@
     <string name="send_payment_failed">The payment failed.</string>
     <string name="send_lost_touch">Lost touch with your node before it answered. The payment may still go through.</string>
     <string name="send_cant_reach_node_for_price">Can\'t reach your node to get the new price.</string>
-    <string name="send_key_lost">This phone\'s key can no longer be read. Pair the phone again.</string>
-    <string name="send_key_unavailable">This phone\'s key could not be read. Unlock the phone and try again.</string>
     <string name="send_hint_dashboard">This is set in the dashboard, under Paying SHA256 invoices.</string>
 
     <!-- Why the send button can't send yet, on the button itself -->

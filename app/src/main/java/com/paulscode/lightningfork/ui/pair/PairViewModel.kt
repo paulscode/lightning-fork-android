@@ -32,6 +32,8 @@ class PairViewModel(
     private val coordinator: PairingCoordinator,
     val tor: TorController,
     defaultLabel: String,
+    /** The name sent when the field is left empty, in the phone's language. */
+    private val fallbackLabel: String = defaultLabel,
 ) : ViewModel() {
     private val _ui = MutableStateFlow(PairUi(label = defaultLabel))
     val ui: StateFlow<PairUi> = _ui
@@ -82,7 +84,7 @@ class PairViewModel(
     fun pair() {
         val payload = _ui.value.payload ?: return
         if (_ui.value.phase != null) return
-        val label = _ui.value.label.ifBlank { "Android phone" }
+        val label = _ui.value.label.ifBlank { fallbackLabel }
         _ui.update { it.copy(error = null, phase = PairPhase.Reaching) }
         viewModelScope.launch {
             when (val r = coordinator.pair(payload, label) { phase -> _ui.update { it.copy(phase = phase) } }) {

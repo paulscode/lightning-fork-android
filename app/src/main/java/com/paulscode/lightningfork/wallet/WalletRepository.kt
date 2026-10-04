@@ -1,7 +1,9 @@
 package com.paulscode.lightningfork.wallet
 
+import com.paulscode.lightningfork.R
 import com.paulscode.lightningfork.data.SettingsStore
 import com.paulscode.lightningfork.net.ApiException
+import com.paulscode.lightningfork.net.AppStrings
 import com.paulscode.lightningfork.net.CertificateChangedException
 import com.paulscode.lightningfork.net.KeyUnavailableException
 import kotlinx.coroutines.CancellationException
@@ -71,6 +73,8 @@ class WalletRepository(
     private val tor: TorController,
     private val settings: SettingsStore,
     private val scope: CoroutineScope,
+    /** The app's own words for [WalletState.error]; the node's own are passed on. */
+    private val strings: AppStrings = AppStrings.English,
 ) {
     private val _state = MutableStateFlow(
         WalletState(
@@ -202,9 +206,9 @@ class WalletRepository(
                 val stillConnecting = tor.status.value == TorStatus.Bootstrapping ||
                     (tor.status.value == TorStatus.Ready && failuresInRow < 2 && transport.route.value != Route.Lan)
                 val message = when {
-                    tor.status.value == TorStatus.Failed -> "Can't reach your node, and Tor could not start."
-                    stillConnecting -> "Connecting to your node over Tor…"
-                    else -> "Can't reach your node right now."
+                    tor.status.value == TorStatus.Failed -> strings.get(R.string.app_wallet_tor_failed)
+                    stillConnecting -> strings.get(R.string.app_wallet_connecting_tor)
+                    else -> strings.get(R.string.app_unreachable)
                 }
                 _state.update {
                     it.copy(

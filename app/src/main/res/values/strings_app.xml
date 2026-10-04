@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Notices when a link opens the app. -->
+    <string name="app_link_pairing_damaged">That pairing link is damaged. Scan the code instead.</string>
+    <string name="app_link_already_paired">This phone is already paired. Unpair it in Settings first.</string>
+    <string name="app_link_pair_first">Pair this phone with your node first, then open the link again.</string>
+    <string name="app_link_payment_open">Finish or close the payment that is open first.</string>
+    <string name="app_link_checking_last_payment">Checking your last payment first. Open the link again after.</string>
+    <!-- The name this phone is given on the node when the phone's model is unknown. -->
+    <string name="app_default_device_label">Android phone</string>
+
+    <!-- Reaching the node. -->
+    <string name="app_key_lost">This phone\'s key can no longer be read. Pair the phone again.</string>
+    <string name="app_key_unavailable">This phone\'s key could not be read. Unlock the phone and try again.</string>
+    <string name="app_certificate_changed">Your node\'s certificate does not match the one this phone was paired with.</string>
+    <string name="app_no_address">No address for the node is known.</string>
+    <string name="app_unreachable">Can\'t reach your node right now.</string>
+
+    <!-- The node answered with an error and gave no sentence of its own. -->
+    <string name="app_error_not_paired">This phone is no longer paired with your node.</string>
+    <string name="app_error_too_many_attempts">Too many attempts. Try again in a few minutes.</string>
+    <string name="app_error_not_answering">Your node is not answering. It may be starting up.</string>
+    <!-- %1$d: the HTTP status code, e.g. 500. -->
+    <string name="app_error_status">Your node answered with an error (%1$d).</string>
+
+    <!-- Pairing. -->
+    <string name="app_pair_no_address">This code doesn\'t say how to reach the node.</string>
+    <string name="app_pair_not_on_lan">Can\'t reach your node from this network. Connect to the same Wi-Fi as your node and try again.</string>
+    <string name="app_pair_tor_failed">Tor could not start. Check the connection and try again.</string>
+    <string name="app_pair_tor_unreachable">Can\'t reach your node over Tor right now. Try again, or pair on the same Wi-Fi as your node.</string>
+    <string name="app_pair_certificate_mismatch">The node\'s certificate does not match the code. Pairing was stopped.</string>
+    <string name="app_pair_code_used">This code has expired or was already used. Make a new one in the dashboard.</string>
+    <string name="app_pair_too_many_attempts">Too many attempts. Wait a few minutes and try again.</string>
+    <string name="app_pair_unreachable">Can\'t reach your node. Check that this phone is online, then try again.</string>
+
+    <!-- The home screen's line when a refresh failed. -->
+    <string name="app_wallet_tor_failed">Can\'t reach your node, and Tor could not start.</string>
+    <string name="app_wallet_connecting_tor">Connecting to your node over Tor…</string>
+</resources>

@@ -1,7 +1,10 @@
 package com.paulscode.lightningfork.net
 
+import android.content.res.Resources
 import android.util.Log
+import androidx.annotation.StringRes
 import com.paulscode.lightningfork.BuildConfig
+import com.paulscode.lightningfork.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +18,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /** Where the node can be reached, and the root certificate it is pinned to. */
@@ -43,6 +47,47 @@ class ApiException(
     val details: ErrorDetails? = null,
 ) : Exception(message)
 
+/**
+ * The app's own words for the user, in the phone's language: a string
+ * resource with its arguments, looked up when the text is made. [of] reads
+ * the app's resources; [English], the default, serves the plain-JVM tests,
+ * which have none.
+ */
+fun interface AppStrings {
+    fun get(@StringRes id: Int, vararg args: Any): String
+
+    companion object {
+        fun of(res: Resources): AppStrings = AppStrings { id, args -> res.getString(id, *args) }
+
+        /** The English of the strings in strings_app.xml that plain classes make. */
+        val English: AppStrings = AppStrings { id, args ->
+            val text = when (id) {
+                R.string.app_key_lost -> "This phone's key can no longer be read. Pair the phone again."
+                R.string.app_key_unavailable -> "This phone's key could not be read. Unlock the phone and try again."
+                R.string.app_certificate_changed -> "Your node's certificate does not match the one this phone was paired with."
+                R.string.app_no_address -> "No address for the node is known."
+                R.string.app_unreachable -> "Can't reach your node right now."
+                R.string.app_error_not_paired -> "This phone is no longer paired with your node."
+                R.string.app_error_too_many_attempts -> "Too many attempts. Try again in a few minutes."
+                R.string.app_error_not_answering -> "Your node is not answering. It may be starting up."
+                R.string.app_error_status -> "Your node answered with an error (%1\$d)."
+                R.string.app_pair_no_address -> "This code doesn't say how to reach the node."
+                R.string.app_pair_not_on_lan -> "Can't reach your node from this network. Connect to the same Wi-Fi as your node and try again."
+                R.string.app_pair_tor_failed -> "Tor could not start. Check the connection and try again."
+                R.string.app_pair_tor_unreachable -> "Can't reach your node over Tor right now. Try again, or pair on the same Wi-Fi as your node."
+                R.string.app_pair_certificate_mismatch -> "The node's certificate does not match the code. Pairing was stopped."
+                R.string.app_pair_code_used -> "This code has expired or was already used. Make a new one in the dashboard."
+                R.string.app_pair_too_many_attempts -> "Too many attempts. Wait a few minutes and try again."
+                R.string.app_pair_unreachable -> "Can't reach your node. Check that this phone is online, then try again."
+                R.string.app_wallet_tor_failed -> "Can't reach your node, and Tor could not start."
+                R.string.app_wallet_connecting_tor -> "Connecting to your node over Tor…"
+                else -> error("no English for string $id")
+            }
+            if (args.isEmpty()) text else String.format(Locale.US, text, *args)
+        }
+    }
+}
+
 /** No way to the node worked. */
 class UnreachableException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
@@ -50,9 +95,8 @@ class UnreachableException(message: String, cause: Throwable? = null) : IOExcept
  * The device key could not be read; nothing was sent. [lost]: the Keystore
  * key is gone for good (the phone must pair again), not just locked.
  */
-class KeyUnavailableException(val lost: Boolean) : IOException(
-    if (lost) "This phone's key can no longer be read. Pair the phone again."
-    else "This phone's key could not be read. Unlock the phone and try again.",
+class KeyUnavailableException(val lost: Boolean, strings: AppStrings = AppStrings.English) : IOException(
+    if (lost) strings.get(R.string.app_key_lost) else strings.get(R.string.app_key_unavailable),
 )
 
 /**
@@ -60,8 +104,8 @@ class KeyUnavailableException(val lost: Boolean) : IOException(
  * phone pinned at pairing: the node's certificate authority changed, or
  * something is in the way. Nothing was sent.
  */
-class CertificateChangedException(cause: Throwable?) :
-    IOException("Your node's certificate does not match the one this phone was paired with.", cause)
+class CertificateChangedException(cause: Throwable?, strings: AppStrings = AppStrings.English) :
+    IOException(strings.get(R.string.app_certificate_changed), cause)
 
 val ApiJson = Json {
     ignoreUnknownKeys = true
@@ -81,11 +125,15 @@ private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
  * failure to connect moves on. Calls that move money carry a request id, so a
  * request that reached the node but whose answer was lost is safe to resend
  * on the next route: the node replies with the first outcome.
+ *
+ * [strings]: the app's own words in its errors (a node's own sentence is
+ * passed on as it came).
  */
 class Transport(
     @Volatile var endpoints: ServerEndpoints,
     private val tor: TorController,
     private val localNetwork: LocalNetwork = LocalNetwork { true },
+    private val strings: AppStrings = AppStrings.English,
     private val apiKeyProvider: () -> com.paulscode.lightningfork.crypto.SecretStore.Read,
 ) {
     @Volatile private var lastGoodUrl: String? = null
@@ -314,12 +362,12 @@ class Transport(
         build: () -> Request.Builder,
     ): String = withContext(Dispatchers.IO) {
         val list = attempts()
-        if (list.isEmpty()) throw UnreachableException("No address for the node is known.")
+        if (list.isEmpty()) throw UnreachableException(strings.get(R.string.app_no_address))
         val key = if (!auth) null else keyOverride ?: when (val read = apiKeyProvider()) {
             is com.paulscode.lightningfork.crypto.SecretStore.Read.Key -> read.value
             com.paulscode.lightningfork.crypto.SecretStore.Read.Lost,
-            com.paulscode.lightningfork.crypto.SecretStore.Read.None -> throw KeyUnavailableException(lost = true)
-            com.paulscode.lightningfork.crypto.SecretStore.Read.Unavailable -> throw KeyUnavailableException(lost = false)
+            com.paulscode.lightningfork.crypto.SecretStore.Read.None -> throw KeyUnavailableException(lost = true, strings)
+            com.paulscode.lightningfork.crypto.SecretStore.Read.Unavailable -> throw KeyUnavailableException(lost = false, strings)
         }
         var last: Exception? = null
         var certFailure: Exception? = null
@@ -375,8 +423,8 @@ class Transport(
             }
         }
         // Reached, but not the certificate pinned at pairing.
-        if (certFailure != null) throw CertificateChangedException(certFailure)
-        throw UnreachableException("Can't reach your node right now.", last)
+        if (certFailure != null) throw CertificateChangedException(certFailure, strings)
+        throw UnreachableException(strings.get(R.string.app_unreachable), last)
     }
 
     private fun isCertificateFailure(e: Throwable): Boolean {
@@ -402,10 +450,10 @@ class Transport(
     private fun errorMessage(code: Int, error: String?): String {
         val fromNode = error?.takeIf { it.isNotBlank() }
         return fromNode ?: when (code) {
-            401 -> "This phone is no longer paired with your node."
-            429 -> "Too many attempts. Try again in a few minutes."
-            502, 503, 504 -> "Your node is not answering. It may be starting up."
-            else -> "Your node answered with an error ($code)."
+            401 -> strings.get(R.string.app_error_not_paired)
+            429 -> strings.get(R.string.app_error_too_many_attempts)
+            502, 503, 504 -> strings.get(R.string.app_error_not_answering)
+            else -> strings.get(R.string.app_error_status, code)
         }
     }
 

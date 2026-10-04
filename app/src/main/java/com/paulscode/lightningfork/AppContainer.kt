@@ -5,6 +5,7 @@ import android.util.Log
 import com.paulscode.lightningfork.crypto.SecretStore
 import com.paulscode.lightningfork.data.SettingsStore
 import com.paulscode.lightningfork.lock.LockController
+import com.paulscode.lightningfork.net.AppStrings
 import com.paulscode.lightningfork.net.ArtiTorController
 import com.paulscode.lightningfork.net.NodeApi
 import com.paulscode.lightningfork.net.TorController
@@ -24,9 +25,12 @@ class AppContainer(context: Context) {
     val secrets = SecretStore(appContext)
     val settings = SettingsStore(appContext)
     val tor: TorController = ArtiTorController(appContext)
-    val transport = Transport(settings.endpoints, tor, com.paulscode.lightningfork.net.AndroidLocalNetwork(appContext)) { secrets.readApiKey() }
+
+    /** The app's own words in errors, in the phone's language. */
+    val strings: AppStrings = AppStrings.of(appContext.resources)
+    val transport = Transport(settings.endpoints, tor, com.paulscode.lightningfork.net.AndroidLocalNetwork(appContext), strings) { secrets.readApiKey() }
     val api = NodeApi(transport)
-    val pairing = PairingCoordinator(transport, api, tor, secrets, settings)
+    val pairing = PairingCoordinator(transport, api, tor, secrets, settings, strings)
 
     /** Outlives screens; a failure in one job never takes the others down. */
     val appScope = CoroutineScope(
@@ -34,7 +38,7 @@ class AppContainer(context: Context) {
             CoroutineExceptionHandler { _, t -> if (BuildConfig.DEBUG) Log.e("LfApp", "uncaught", t) },
     )
 
-    val wallet = WalletRepository(api, transport, tor, settings, appScope)
+    val wallet = WalletRepository(api, transport, tor, settings, appScope, strings)
     val lock = LockController()
 
     /** A pairing code that arrived by link, for the pairing screen to pick up. */
@@ -53,7 +57,7 @@ class AppContainer(context: Context) {
         unpair()
         if (key != null) {
             appScope.launch(Dispatchers.IO) {
-                val t = Transport(endpoints, tor, com.paulscode.lightningfork.net.AndroidLocalNetwork(appContext)) { com.paulscode.lightningfork.crypto.SecretStore.Read.None }
+                val t = Transport(endpoints, tor, com.paulscode.lightningfork.net.AndroidLocalNetwork(appContext), strings) { com.paulscode.lightningfork.crypto.SecretStore.Read.None }
                 runCatching { kotlinx.coroutines.withTimeoutOrNull(60_000) { NodeApi(t).unpair(key) } }
             }
         }

@@ -181,11 +181,11 @@ class MainActivity : FragmentActivity() {
                 String(android.util.Base64.decode(code, android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP), Charsets.UTF_8)
             }.getOrNull()
             if (json == null) {
-                android.widget.Toast.makeText(this, "That pairing link is damaged. Scan the code instead.", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(this, getString(R.string.app_link_pairing_damaged), android.widget.Toast.LENGTH_LONG).show()
                 return
             }
             if (container.isPaired) {
-                android.widget.Toast.makeText(this, "This phone is already paired. Unpair it in Settings first.", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(this, getString(R.string.app_link_already_paired), android.widget.Toast.LENGTH_LONG).show()
             } else {
                 container.pendingPairing.value = json
             }
@@ -193,12 +193,12 @@ class MainActivity : FragmentActivity() {
         }
         if (scheme == "bitcoin" || scheme == "lightning") {
             if (!container.isPaired) {
-                android.widget.Toast.makeText(this, "Pair this phone with your node first, then open the link again.", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(this, getString(R.string.app_link_pair_first), android.widget.Toast.LENGTH_LONG).show()
                 return
             }
             // Never over a send that is open: its outcome must stay on screen.
             if (nav.stack.any { it.dest is Dest.Send }) {
-                android.widget.Toast.makeText(this, "Finish or close the payment that is open first.", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(this, getString(R.string.app_link_payment_open), android.widget.Toast.LENGTH_LONG).show()
                 return
             }
             nav.home()
@@ -206,7 +206,7 @@ class MainActivity : FragmentActivity() {
             // known: an unfinished one is settled first, as Send does,
             // rather than forgotten for the new one.
             if (container.settings.pendingSend != null) {
-                android.widget.Toast.makeText(this, "Checking your last payment first. Open the link again after.", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(this, getString(R.string.app_link_checking_last_payment), android.widget.Toast.LENGTH_LONG).show()
                 nav.push(Dest.Send(resume = true))
                 return
             }
@@ -330,7 +330,7 @@ class MainActivity : FragmentActivity() {
     private fun PairFlow(onPaired: () -> Unit) {
         val vm: PairViewModel = viewModel(factory = viewModelFactory {
             initializer {
-                PairViewModel(container.pairing, container.tor, defaultLabel = Build.MODEL ?: "Android phone")
+                PairViewModel(container.pairing, container.tor, defaultLabel = Build.MODEL ?: getString(R.string.app_default_device_label))
             }
         })
         val ui by vm.ui.collectAsStateWithLifecycle()

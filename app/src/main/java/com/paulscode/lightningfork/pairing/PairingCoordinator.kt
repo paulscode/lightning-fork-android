@@ -1,9 +1,11 @@
 package com.paulscode.lightningfork.pairing
 
+import com.paulscode.lightningfork.R
 import com.paulscode.lightningfork.crypto.SecretStore
 import com.paulscode.lightningfork.data.SettingsStore
 import com.paulscode.lightningfork.net.ApiException
 import com.paulscode.lightningfork.net.ApiJson
+import com.paulscode.lightningfork.net.AppStrings
 import com.paulscode.lightningfork.net.CaPinning
 import com.paulscode.lightningfork.net.NodeApi
 import com.paulscode.lightningfork.net.PairRequest
@@ -49,6 +51,8 @@ class PairingCoordinator(
     private val tor: TorController,
     private val secrets: SecretStore,
     private val settings: SettingsStore,
+    /** The app's own words in a failure; the node's own are passed on. */
+    private val strings: AppStrings = AppStrings.English,
 ) {
     // One nonce per code, reused if pairing with it is tried again.
     private val nonces = mutableMapOf<String, String>()
@@ -64,7 +68,7 @@ class PairingCoordinator(
         onProgress: (PairPhase) -> Unit = {},
     ): PairResult {
         if (payload.onion == null && payload.lan == null && payload.ip == null) {
-            return PairResult.Failure("This code doesn't say how to reach the node.", recoverable = false)
+            return PairResult.Failure(strings.get(R.string.app_pair_no_address), recoverable = false)
         }
         transport.endpoints = ServerEndpoints(
             onionUrl = payload.onion,
@@ -85,7 +89,7 @@ class PairingCoordinator(
             val onLan = transport.endpoints.caPem != null
             if (!onLan && payload.onion == null) {
                 return PairResult.Failure(
-                    "Can't reach your node from this network. Connect to the same Wi-Fi as your node and try again.",
+                    strings.get(R.string.app_pair_not_on_lan),
                     recoverable = true,
                 )
             }
@@ -93,7 +97,7 @@ class PairingCoordinator(
                 onProgress(PairPhase.StartingTor)
                 tor.start()
                 if (tor.status.value != TorStatus.Ready) {
-                    return PairResult.Failure("Tor could not start. Check the connection and try again.", recoverable = true)
+                    return PairResult.Failure(strings.get(R.string.app_pair_tor_failed), recoverable = true)
                 }
             }
             // An https onion is pinned too: capture its root over Tor, by the
@@ -101,7 +105,7 @@ class PairingCoordinator(
             if (!onLan && payload.onion!!.startsWith("https://")) {
                 val pem = payload.ca?.let { transport.acquireRootPem(payload.onion, it, viaTor = true) }
                     ?: return PairResult.Failure(
-                        "Can't reach your node over Tor right now. Try again, or pair on the same Wi-Fi as your node.",
+                        strings.get(R.string.app_pair_tor_unreachable),
                         recoverable = true,
                     )
                 transport.endpoints = transport.endpoints.copy(caPem = pem)
@@ -125,7 +129,7 @@ class PairingCoordinator(
                 // The node made a key for this phone; don't leave it there.
                 runCatching { api.unpair(paired.apiKey) }
                 return PairResult.Failure(
-                    "The node's certificate does not match the code. Pairing was stopped.",
+                    strings.get(R.string.app_pair_certificate_mismatch),
                     recoverable = false,
                 )
             }
@@ -150,15 +154,15 @@ class PairingCoordinator(
             return PairResult.Success(paired.node?.alias.orEmpty())
         } catch (e: ApiException) {
             val msg = when (e.status) {
-                401 -> "This code has expired or was already used. Make a new one in the dashboard."
-                429 -> "Too many attempts. Wait a few minutes and try again."
+                401 -> strings.get(R.string.app_pair_code_used)
+                429 -> strings.get(R.string.app_pair_too_many_attempts)
                 else -> e.message
             }
             return PairResult.Failure(msg, recoverable = e.status != 401)
         } catch (e: Throwable) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             return PairResult.Failure(
-                "Can't reach your node. Check that this phone is online, then try again.",
+                strings.get(R.string.app_pair_unreachable),
                 recoverable = true,
             )
         }

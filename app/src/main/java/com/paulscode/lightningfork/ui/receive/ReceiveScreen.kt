@@ -55,6 +55,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.paulscode.lightningfork.ui.components.AmountField
@@ -76,6 +77,8 @@ import com.paulscode.lightningfork.ui.theme.TextFaint
 import com.paulscode.lightningfork.ui.theme.TextMuted
 import com.paulscode.lightningfork.ui.theme.TextPrimary
 import com.paulscode.lightningfork.ui.theme.Warning
+import com.paulscode.lightningfork.R
+import com.paulscode.lightningfork.ui.text.textOrNull
 import com.paulscode.lightningfork.util.Clipboard
 import com.paulscode.lightningfork.util.Format
 import com.paulscode.lightningfork.wallet.WalletState
@@ -85,10 +88,10 @@ import kotlinx.coroutines.delay
 fun ReceiveScreen(vm: ReceiveViewModel, wallet: WalletState, onClose: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().background(Page).statusBarsPadding().navigationBarsPadding().imePadding()) {
-        TopBar("Receive", onBack = onClose)
+        TopBar(stringResource(R.string.receive_title), onBack = onClose)
         if (!(ui.tab == ReceiveTab.Lightning && ui.invoiceState == "settled")) {
             SegmentedToggle(
-                options = listOf("Lightning", "On-chain"),
+                options = listOf("Lightning", stringResource(R.string.receive_tab_onchain)),
                 selected = if (ui.tab == ReceiveTab.Lightning) 0 else 1,
                 onSelect = { vm.selectTab(if (it == 0) ReceiveTab.Lightning else ReceiveTab.Onchain) },
                 modifier = Modifier.padding(horizontal = 20.dp),
@@ -122,10 +125,10 @@ private fun LightningTab(ui: ReceiveUi, vm: ReceiveViewModel, wallet: WalletStat
 private fun InvoiceForm(ui: ReceiveUi, vm: ReceiveViewModel, wallet: WalletState) {
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp)) {
-            Text("Request a payment", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+            Text(stringResource(R.string.receive_request_title), style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
             Spacer(Modifier.height(6.dp))
             Text(
-                "Leave the amount empty to let the payer choose it.",
+                stringResource(R.string.receive_request_hint),
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextMuted,
             )
@@ -135,31 +138,31 @@ private fun InvoiceForm(ui: ReceiveUi, vm: ReceiveViewModel, wallet: WalletState
                 onTextChange = vm::onAmountText,
                 unit = ui.unit,
                 onToggleUnit = vm::toggleUnit,
-                placeholder = "Any amount",
+                placeholder = stringResource(R.string.receive_any_amount),
                 fiat = Format.parseAmount(ui.amountText, ui.unit)?.let { Format.fiat(it, wallet.fiatPrice, wallet.fiatCurrency) },
             )
             Spacer(Modifier.height(16.dp))
             AppTextField(
                 value = ui.memo,
                 onValueChange = vm::onMemo,
-                label = "Description (optional)",
-                placeholder = "What's it for?",
+                label = stringResource(R.string.receive_description_label),
+                placeholder = stringResource(R.string.receive_description_placeholder),
             )
             val inbound = wallet.wallet?.lightning?.inboundSat
             if (inbound != null) {
                 val asked = Format.parseAmount(ui.amountText, ui.unit) ?: 0
                 Text(
-                    "You can receive up to ${Format.amountWithUnit(inbound, ui.unit)} over Lightning.",
+                    stringResource(R.string.receive_can_receive_up_to, Format.amountWithUnit(inbound, ui.unit)),
                     style = MaterialTheme.typography.bodySmall,
                     color = if (asked > inbound) Warning else TextMuted,
                     modifier = Modifier.padding(top = 14.dp, start = 4.dp),
                 )
             }
             Spacer(Modifier.height(14.dp))
-            Notice(ui.error)
+            Notice(ui.error.textOrNull())
         }
         PrimaryButton(
-            "Create invoice",
+            stringResource(R.string.receive_create_invoice),
             onClick = vm::createInvoice,
             loading = ui.creating,
             modifier = Modifier.fillMaxWidth().padding(20.dp),
@@ -184,16 +187,17 @@ private fun InvoiceView(ui: ReceiveUi, vm: ReceiveViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(Modifier.widthIn(max = 340.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                val qrInvoice = stringResource(R.string.receive_qr_invoice)
                 QrCode(
                     "lightning:" + inv.paymentRequest.uppercase(),
-                    Modifier.fillMaxWidth().semantics { contentDescription = "QR code of the invoice" },
+                    Modifier.fillMaxWidth().semantics { contentDescription = qrInvoice },
                 )
                 if (expired) {
                     Box(
                         Modifier.matchParentSize().clip(RoundedCornerShape(20.dp)).background(Page.copy(alpha = 0.86f)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("Expired", style = MaterialTheme.typography.headlineSmall, color = Warning)
+                        Text(stringResource(R.string.receive_expired), style = MaterialTheme.typography.headlineSmall, color = Warning)
                     }
                 }
             }
@@ -201,24 +205,24 @@ private fun InvoiceView(ui: ReceiveUi, vm: ReceiveViewModel) {
             if (inv.amountSat != null) {
                 AnimatedAmount(inv.amountSat, ui.unit, style = MaterialTheme.typography.displaySmall, color = TextPrimary)
             } else {
-                Text("Any amount", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
+                Text(stringResource(R.string.receive_any_amount), style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
             }
             if (inv.memo.isNotBlank()) {
-                Text("“${inv.memo}”", style = MaterialTheme.typography.bodyLarge, color = TextMuted, modifier = Modifier.padding(top = 6.dp))
+                Text(stringResource(R.string.receive_memo_quoted, inv.memo), style = MaterialTheme.typography.bodyLarge, color = TextMuted, modifier = Modifier.padding(top = 6.dp))
             }
             Spacer(Modifier.height(10.dp))
             if (!expired) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(color = Accent, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
                     Text(
-                        "  Waiting for payment · expires in ${Format.countdown(inv.expiresAt - now)}",
+                        stringResource(R.string.receive_waiting_expires_in, Format.countdown(inv.expiresAt - now)),
                         style = MaterialTheme.typography.bodySmall,
                         color = TextMuted,
                     )
                 }
             }
             Spacer(Modifier.height(20.dp))
-            CopyShareRow(text = inv.paymentRequest, label = "invoice", shareText = "lightning:" + inv.paymentRequest)
+            CopyShareRow(text = inv.paymentRequest, label = stringResource(R.string.receive_clip_invoice), shareText = "lightning:" + inv.paymentRequest)
             Spacer(Modifier.height(12.dp))
             Text(
                 Format.middle(inv.paymentRequest, 20, 12),
@@ -227,7 +231,7 @@ private fun InvoiceView(ui: ReceiveUi, vm: ReceiveViewModel) {
             )
         }
         SecondaryButton(
-            if (expired) "Create a new invoice" else "New invoice",
+            stringResource(if (expired) R.string.receive_create_new_invoice else R.string.receive_new_invoice),
             onClick = vm::newInvoice,
             modifier = Modifier.fillMaxWidth().padding(20.dp),
         )
@@ -256,13 +260,13 @@ private fun Received(sats: Long, ui: ReceiveUi, onClose: () -> Unit, onAnother: 
                 Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(56.dp))
             }
             Spacer(Modifier.height(28.dp))
-            Text("Received", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+            Text(stringResource(R.string.receive_received), style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
             Spacer(Modifier.height(10.dp))
             AnimatedAmount(sats, ui.unit, style = MaterialTheme.typography.displaySmall, color = TextPrimary)
         }
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryButton("Done", onClick = onClose, modifier = Modifier.fillMaxWidth())
-            SecondaryButton("Request another", onClick = onAnother, modifier = Modifier.fillMaxWidth())
+            PrimaryButton(stringResource(R.string.receive_done), onClick = onClose, modifier = Modifier.fillMaxWidth())
+            SecondaryButton(stringResource(R.string.receive_request_another), onClick = onAnother, modifier = Modifier.fillMaxWidth())
         }
     }
 }
@@ -278,7 +282,8 @@ private fun OnchainTab(ui: ReceiveUi, vm: ReceiveViewModel, wallet: WalletState)
         val uri = ui.onchainUri
         Box(Modifier.widthIn(max = 340.dp).fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
             if (uri != null) {
-                QrCode(uri, Modifier.fillMaxWidth().semantics { contentDescription = "QR code of the address" }, bitcoin = true)
+                val qrAddress = stringResource(R.string.receive_qr_address)
+                QrCode(uri, Modifier.fillMaxWidth().semantics { contentDescription = qrAddress }, bitcoin = true)
             } else {
                 Box(
                     Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)).background(SurfaceRaised),
@@ -290,7 +295,7 @@ private fun OnchainTab(ui: ReceiveUi, vm: ReceiveViewModel, wallet: WalletState)
         }
         AnimatedVisibility(ui.incomingSat > 0, enter = fadeIn(), exit = fadeOut()) {
             Notice(
-                "Payment of ${Format.amountWithUnit(ui.incomingSat, ui.unit)} arriving. It is spendable once it confirms.",
+                stringResource(R.string.receive_payment_arriving, Format.amountWithUnit(ui.incomingSat, ui.unit)),
                 kind = NoticeKind.Info,
                 modifier = Modifier.padding(top = 16.dp),
             )
@@ -305,7 +310,7 @@ private fun OnchainTab(ui: ReceiveUi, vm: ReceiveViewModel, wallet: WalletState)
                 modifier = Modifier.padding(horizontal = 8.dp),
             )
             Spacer(Modifier.height(18.dp))
-            CopyShareRow(text = address.address, label = "address", shareText = uri ?: address.address)
+            CopyShareRow(text = address.address, label = stringResource(R.string.receive_clip_address), shareText = uri ?: address.address)
         }
         Spacer(Modifier.height(16.dp))
         if (withAmount) {
@@ -314,22 +319,22 @@ private fun OnchainTab(ui: ReceiveUi, vm: ReceiveViewModel, wallet: WalletState)
                 onTextChange = vm::onOnchainAmountText,
                 unit = ui.unit,
                 onToggleUnit = vm::toggleUnit,
-                label = "Amount to ask for (optional)",
+                label = stringResource(R.string.receive_amount_to_ask),
                 fiat = Format.parseAmount(ui.onchainAmountText, ui.unit)?.let { Format.fiat(it, wallet.fiatPrice, wallet.fiatCurrency) },
             )
         }
         Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-            if (!withAmount) QuietButton("Add an amount", onClick = { withAmount = true })
-            QuietButton("New address", onClick = { vm.loadAddress(fresh = true) }, enabled = !ui.loadingAddress)
+            if (!withAmount) QuietButton(stringResource(R.string.receive_add_amount), onClick = { withAmount = true })
+            QuietButton(stringResource(R.string.receive_new_address), onClick = { vm.loadAddress(fresh = true) }, enabled = !ui.loadingAddress)
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            "BTCB2 sent here takes a block or more to confirm. For instant payments, use Lightning.",
+            stringResource(R.string.receive_onchain_note),
             style = MaterialTheme.typography.bodySmall,
             color = TextFaint,
             textAlign = TextAlign.Center,
         )
-        Notice(ui.error, modifier = Modifier.padding(top = 12.dp))
+        Notice(ui.error.textOrNull(), modifier = Modifier.padding(top = 12.dp))
     }
 }
 
@@ -345,7 +350,7 @@ private fun CopyShareRow(text: String, label: String, shareText: String) {
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         SecondaryButton(
-            if (copied) "Copied" else "Copy",
+            stringResource(if (copied) R.string.receive_copied else R.string.receive_copy),
             onClick = {
                 Clipboard.copyPlain(context, text, label)
                 copied = true
@@ -355,7 +360,7 @@ private fun CopyShareRow(text: String, label: String, shareText: String) {
             contentColor = if (copied) Success else TextPrimary,
         )
         SecondaryButton(
-            "Share",
+            stringResource(R.string.receive_share),
             onClick = {
                 val send = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"

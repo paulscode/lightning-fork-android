@@ -41,6 +41,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.paulscode.lightningfork.R
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -79,7 +81,7 @@ fun TopBar(
     ) {
         if (onBack != null) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = TextPrimary)
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back), tint = TextPrimary)
             }
         } else {
             Spacer(Modifier.width(12.dp))
@@ -218,7 +220,7 @@ fun AmountField(
     unit: AmountUnit,
     onToggleUnit: () -> Unit,
     modifier: Modifier = Modifier,
-    label: String? = "Amount",
+    label: String? = stringResource(R.string.common_amount),
     placeholder: String = "0",
     fiat: String? = null,
 ) {
@@ -250,7 +252,7 @@ fun AmountField(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
                         .background(SurfaceRaised)
-                        .clickable(onClickLabel = "Switch between sats and BTC", onClick = onToggleUnit)
+                        .clickable(onClickLabel = stringResource(R.string.common_switch_unit), onClick = onToggleUnit)
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                 )
             },

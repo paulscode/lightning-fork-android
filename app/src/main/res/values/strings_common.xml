@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="common_back">Back</string>
+    <string name="common_amount">Amount</string>
+    <string name="common_switch_unit">Switch between sats and BTC</string>
+    <!-- Clipboard labels: what was copied, when the caller does not say. -->
+    <string name="common_clip_value">value</string>
+    <string name="common_clip_text">text</string>
+</resources>

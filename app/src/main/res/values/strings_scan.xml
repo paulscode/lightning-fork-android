@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scan_camera_off">Camera access is off</string>
+    <string name="scan_allow_or_paste">Allow the camera to scan codes, or paste instead.</string>
+    <string name="scan_allow">Allow the camera to scan codes.</string>
+    <string name="scan_open_settings">Open settings</string>
+    <string name="scan_allow_camera">Allow camera</string>
+    <string name="scan_close">Close</string>
+    <string name="scan_torch_off">Torch off</string>
+    <string name="scan_torch_on">Torch on</string>
+    <string name="scan_paste_instead">Paste instead</string>
+</resources>

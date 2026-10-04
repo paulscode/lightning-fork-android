@@ -64,11 +64,14 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.paulscode.lightningfork.R
 import com.paulscode.lightningfork.net.PaymentTarget
 import com.paulscode.lightningfork.ui.components.AmountField
 import com.paulscode.lightningfork.ui.components.AnimatedAmount
@@ -96,6 +99,8 @@ import com.paulscode.lightningfork.ui.theme.SurfaceRaised
 import com.paulscode.lightningfork.ui.theme.TextFaint
 import com.paulscode.lightningfork.ui.theme.TextMuted
 import com.paulscode.lightningfork.ui.theme.TextPrimary
+import com.paulscode.lightningfork.ui.text.text
+import com.paulscode.lightningfork.ui.text.textOrNull
 import com.paulscode.lightningfork.ui.theme.Warning
 import com.paulscode.lightningfork.util.Clipboard
 import com.paulscode.lightningfork.util.Coin
@@ -132,8 +137,8 @@ fun SendScreen(
     if (scanning) {
         BackHandler { scanning = false }
         ScanScreen(
-            title = "Scan to pay",
-            hint = "Point at a payment QR code",
+            title = stringResource(R.string.send_scan_title),
+            hint = stringResource(R.string.send_scan_hint),
             onResult = { text ->
                 scanning = false
                 vm.onScanned(text)
@@ -176,39 +181,39 @@ fun SendScreen(
 @Composable
 private fun InputStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit, onPaste: () -> Unit, onScan: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
-        TopBar("Send", onBack = onClose)
+        TopBar(stringResource(R.string.send_title), onBack = onClose)
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
         ) {
             Spacer(Modifier.height(8.dp))
-            Text("Who are you paying?", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+            Text(stringResource(R.string.send_input_heading), style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
             Spacer(Modifier.height(6.dp))
             Text(
-                "A BTCB2 address, a Lightning invoice or offer, or a SHA256 invoice.",
+                stringResource(R.string.send_input_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextMuted,
             )
             Spacer(Modifier.height(22.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                BigChoice("Scan", "Use the camera", Icons.Rounded.QrCodeScanner, onScan, Modifier.weight(1f))
-                BigChoice("Paste", "From the clipboard", Icons.Rounded.ContentPaste, onPaste, Modifier.weight(1f))
+                BigChoice(stringResource(R.string.send_scan), stringResource(R.string.send_scan_subtitle), Icons.Rounded.QrCodeScanner, onScan, Modifier.weight(1f))
+                BigChoice(stringResource(R.string.send_paste), stringResource(R.string.send_paste_subtitle), Icons.Rounded.ContentPaste, onPaste, Modifier.weight(1f))
             }
             Spacer(Modifier.height(22.dp))
             AppTextField(
                 value = ui.input,
                 onValueChange = vm::onInput,
-                label = "Or type it",
-                placeholder = "bc1… · lnbc… · lno1…",
+                label = stringResource(R.string.send_input_label),
+                placeholder = stringResource(R.string.send_input_placeholder),
                 singleLine = false,
                 minLines = 3,
                 imeAction = ImeAction.Done,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
             )
             Spacer(Modifier.height(14.dp))
-            Notice(ui.inputError)
+            Notice(ui.inputError.textOrNull())
         }
         PrimaryButton(
-            "Continue",
+            stringResource(R.string.send_continue),
             onClick = { vm.submit() },
             enabled = ui.input.isNotBlank(),
             loading = ui.decoding,
@@ -246,13 +251,13 @@ private fun BigChoice(
     }
 }
 
-private fun kindTitle(t: PaymentTarget): String = when (t.kind) {
-    "onchain" -> "On-chain address"
-    "bolt11" -> "Lightning invoice"
-    "offer" -> "Lightning offer"
-    "bolt12-invoice" -> "Lightning invoice (offer)"
-    "bitcoin-invoice" -> "Lightning invoice"
-    else -> "Payment"
+private fun kindTitle(t: PaymentTarget): Int = when (t.kind) {
+    "onchain" -> R.string.send_kind_onchain
+    "bolt11" -> R.string.send_kind_bolt11
+    "offer" -> R.string.send_kind_offer
+    "bolt12-invoice" -> R.string.send_kind_bolt12_invoice
+    "bitcoin-invoice" -> R.string.send_kind_bolt11
+    else -> R.string.send_kind_payment
 }
 
 @Composable
@@ -260,23 +265,23 @@ private fun ReviewStep(ui: SendUi, vm: SendViewModel, wallet: WalletState) {
     val t = ui.active ?: return
     val target = ui.target!!
     Column(Modifier.fillMaxSize()) {
-        TopBar("Review", onBack = vm::backToInput)
+        TopBar(stringResource(R.string.send_review_title), onBack = vm::backToInput)
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
         ) {
             if (target.fallback != null && target.isLightning) {
                 SegmentedToggle(
-                    options = listOf("Lightning", "On-chain"),
+                    options = listOf(stringResource(R.string.send_option_lightning), stringResource(R.string.send_option_onchain)),
                     selected = if (ui.payOnchain) 1 else 0,
                     onSelect = { vm.choosePayOnchain(it == 1) },
                 )
                 Spacer(Modifier.height(16.dp))
             }
-            Notice(ui.reviewNotice, kind = NoticeKind.Warning, modifier = Modifier.padding(bottom = 16.dp))
+            Notice(ui.reviewNotice.textOrNull(), kind = NoticeKind.Warning, modifier = Modifier.padding(bottom = 16.dp))
             // Why a SHA256 invoice can't be paid now, first, where it is seen.
             if (t.isBitcoinInvoice && (!t.payable || t.estimate == null)) {
                 Notice(
-                    t.message ?: "This SHA256 invoice can't be paid right now.",
+                    t.message ?: stringResource(R.string.send_sha256_cant_pay_now),
                     kind = NoticeKind.Warning,
                     modifier = Modifier.padding(bottom = 16.dp),
                 )
@@ -295,7 +300,7 @@ private fun ReviewStep(ui: SendUi, vm: SendViewModel, wallet: WalletState) {
                 )
             } else {
                 AppCard(Modifier.fillMaxWidth()) {
-                    Text("Amount", style = MaterialTheme.typography.labelMedium, color = TextMuted)
+                    Text(stringResource(R.string.send_amount), style = MaterialTheme.typography.labelMedium, color = TextMuted)
                     Spacer(Modifier.height(6.dp))
                     val amount = ui.amountSat
                     if (amount != null) {
@@ -304,7 +309,7 @@ private fun ReviewStep(ui: SendUi, vm: SendViewModel, wallet: WalletState) {
                             Text(it, style = MaterialTheme.typography.bodySmall, color = TextMuted)
                         }
                     } else {
-                        Text("Working it out…", style = MaterialTheme.typography.titleMedium, color = TextFaint)
+                        Text(stringResource(R.string.send_working_it_out), style = MaterialTheme.typography.titleMedium, color = TextFaint)
                     }
                 }
             }
@@ -314,9 +319,9 @@ private fun ReviewStep(ui: SendUi, vm: SendViewModel, wallet: WalletState) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("Send everything", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                        Text(stringResource(R.string.send_everything), style = MaterialTheme.typography.titleSmall, color = TextPrimary)
                         Text(
-                            "All confirmed on-chain funds, less the fee",
+                            stringResource(R.string.send_everything_subtitle),
                             style = MaterialTheme.typography.bodySmall,
                             color = TextMuted,
                         )
@@ -333,8 +338,8 @@ private fun ReviewStep(ui: SendUi, vm: SendViewModel, wallet: WalletState) {
                 AppTextField(
                     value = ui.payerNote,
                     onValueChange = vm::onPayerNote,
-                    label = "Note to the recipient (optional)",
-                    placeholder = "Thanks!",
+                    label = stringResource(R.string.send_payer_note_label),
+                    placeholder = stringResource(R.string.send_payer_note_placeholder),
                 )
             }
             Spacer(Modifier.height(18.dp))
@@ -345,9 +350,9 @@ private fun ReviewStep(ui: SendUi, vm: SendViewModel, wallet: WalletState) {
                 Spacer(Modifier.height(14.dp))
                 AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
                     val est = ui.estimate
-                    InfoRow("Amount", ui.amountSat?.let { Format.amountWithUnit(it, ui.unit) } ?: "—")
+                    InfoRow(stringResource(R.string.send_amount), ui.amountSat?.let { Format.amountWithUnit(it, ui.unit) } ?: "—")
                     InfoRow(
-                        "Network fee",
+                        stringResource(R.string.send_network_fee),
                         when {
                             ui.estimating && est == null -> "…"
                             est != null -> Format.amountWithUnit(est.feeSat, ui.unit)
@@ -355,31 +360,31 @@ private fun ReviewStep(ui: SendUi, vm: SendViewModel, wallet: WalletState) {
                         },
                     )
                     InfoRow(
-                        "Total",
+                        stringResource(R.string.send_total),
                         est?.let { Format.amountWithUnit(it.totalSat, ui.unit) } ?: "—",
                         emphasize = true,
                     )
                 }
                 Text(
-                    "On-chain balance: ${Format.amountWithUnit(wallet.wallet?.onchain?.confirmedSat ?: 0, ui.unit)}",
+                    stringResource(R.string.send_onchain_balance, Format.amountWithUnit(wallet.wallet?.onchain?.confirmedSat ?: 0, ui.unit)),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextMuted,
                     modifier = Modifier.padding(top = 10.dp, start = 4.dp),
                 )
                 // Addresses look the same on both chains.
                 Text(
-                    "Sends BTCB2 on the BLAKE2b chain. Not for someone expecting BTC (SHA256).",
+                    stringResource(R.string.send_onchain_chain_warning),
                     style = MaterialTheme.typography.bodySmall,
                     color = Warning,
                     modifier = Modifier.padding(top = 6.dp, start = 4.dp),
                 )
             } else {
                 AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
-                    InfoRow("Routing fee", "Usually a few sats")
+                    InfoRow(stringResource(R.string.send_routing_fee), stringResource(R.string.send_routing_fee_usual))
                     t.expiresAt?.let { ExpiryRow(it) }
                 }
                 Text(
-                    "Lightning balance: ${Format.amountWithUnit(wallet.wallet?.lightning?.outboundSat ?: 0, ui.unit)}",
+                    stringResource(R.string.send_lightning_balance, Format.amountWithUnit(wallet.wallet?.lightning?.outboundSat ?: 0, ui.unit)),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextMuted,
                     modifier = Modifier.padding(top = 10.dp, start = 4.dp),
@@ -387,10 +392,10 @@ private fun ReviewStep(ui: SendUi, vm: SendViewModel, wallet: WalletState) {
             }
             Spacer(Modifier.height(12.dp))
             if (ui.onchain) {
-                Notice(ui.estimateError)
+                Notice(ui.estimateError.textOrNull())
                 if (ui.feesError != null) {
-                    Notice(ui.feesError, kind = NoticeKind.Warning)
-                    com.paulscode.lightningfork.ui.components.QuietButton("Try again", onClick = vm::reloadFees)
+                    Notice(ui.feesError.textOrNull(), kind = NoticeKind.Warning)
+                    com.paulscode.lightningfork.ui.components.QuietButton(stringResource(R.string.send_try_again), onClick = vm::reloadFees)
                 }
             }
             ui.fees?.warning?.let { Notice(it, kind = NoticeKind.Info, modifier = Modifier.padding(top = 8.dp)) }
@@ -403,14 +408,14 @@ private fun ReviewStep(ui: SendUi, vm: SendViewModel, wallet: WalletState) {
                 value++
             }
         }
-        val blocker = tick.let { vm.blocker(ui) }
+        val blocker = tick.let { vm.blocker(ui) }?.text()
         val amount = ui.amountSat
         PrimaryButton(
             when {
                 blocker != null -> blocker
-                amount != null && t.isBitcoinInvoice -> "Pay at most ${Format.amountWithUnit(amount, ui.unit, Coin.Btcb2)}"
-                amount != null -> "Send ${Format.amountWithUnit(amount, ui.unit)}"
-                else -> "Send"
+                amount != null && t.isBitcoinInvoice -> stringResource(R.string.send_pay_at_most, Format.amountWithUnit(amount, ui.unit, Coin.Btcb2))
+                amount != null -> stringResource(R.string.send_send_amount, Format.amountWithUnit(amount, ui.unit))
+                else -> stringResource(R.string.send_send)
             },
             onClick = vm::send,
             enabled = blocker == null,
@@ -428,7 +433,7 @@ private fun RecipientCard(t: PaymentTarget) {
             if (t.kind == "onchain") BitcoinMark(40.dp) else LightningMark(40.dp)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(kindTitle(t), style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                Text(stringResource(kindTitle(t)), style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                 val who = t.issuer?.takeIf { it.isNotBlank() }
                 if (who != null) Text(who, style = MaterialTheme.typography.bodySmall, color = TextMuted)
             }
@@ -437,15 +442,15 @@ private fun RecipientCard(t: PaymentTarget) {
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(50))
-                        .clickable(onClickLabel = "What paying a SHA256 invoice means") { explain = true },
+                        .clickable(onClickLabel = stringResource(R.string.send_sha256_explain_label)) { explain = true },
                 ) {
-                    Pill("SHA256 invoice ⓘ", color = Warning)
+                    Pill(stringResource(R.string.send_sha256_pill), color = Warning)
                 }
             }
         }
         if (t.description.isNotBlank()) {
             Spacer(Modifier.height(14.dp))
-            Text("“${t.description}”", style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+            Text(stringResource(R.string.send_description_quoted, t.description), style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
         }
         Spacer(Modifier.height(14.dp))
         val shown = if (t.kind == "onchain") Format.grouped(t.address ?: t.request) else Format.middle(t.request, 18, 12)
@@ -475,7 +480,7 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
     if (explain) Sha256Explainer(onDismiss = { explain = false })
     AppCard(Modifier.fillMaxWidth()) {
         if (est != null) {
-            Text("At most", style = MaterialTheme.typography.labelMedium, color = TextMuted)
+            Text(stringResource(R.string.send_at_most), style = MaterialTheme.typography.labelMedium, color = TextMuted)
             Spacer(Modifier.height(6.dp))
             val most = est.maxIncomingSat + est.routingFeeLimitSat
             AnimatedAmount(most, ui.unit, style = MaterialTheme.typography.displaySmall, color = TextPrimary, coin = Coin.Btcb2)
@@ -484,19 +489,19 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                "Expected ${Format.amountWithUnit(est.incomingSat, ui.unit, Coin.Btcb2)} plus routing, if the price holds until it is paid",
+                stringResource(R.string.send_expected, Format.amountWithUnit(est.incomingSat, ui.unit, Coin.Btcb2)),
                 style = MaterialTheme.typography.bodySmall,
                 color = TextMuted,
             )
             Spacer(Modifier.height(12.dp))
-            val who = est.serviceLabel.ifBlank { "your service" }
+            val who = est.serviceLabel.takeIf { it.isNotBlank() }
             Text(
-                "Paid through $who. It is paid only if the SHA256 invoice is paid; otherwise your payment comes back.",
+                if (who != null) stringResource(R.string.send_paid_through, who) else stringResource(R.string.send_paid_through_your_service),
                 style = MaterialTheme.typography.bodySmall,
                 color = TextPrimary,
             )
             Text(
-                "How this works",
+                stringResource(R.string.send_how_this_works),
                 style = MaterialTheme.typography.bodySmall,
                 color = Accent,
                 modifier = Modifier
@@ -505,13 +510,13 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
                     .padding(vertical = 4.dp),
             )
         } else {
-            Text("Amount on the SHA256 chain", style = MaterialTheme.typography.labelMedium, color = TextMuted)
+            Text(stringResource(R.string.send_amount_sha256), style = MaterialTheme.typography.labelMedium, color = TextMuted)
             Spacer(Modifier.height(6.dp))
             val amount = t.amountSat
             if (amount != null) {
                 AnimatedAmount(amount, ui.unit, style = MaterialTheme.typography.displaySmall, color = TextPrimary, coin = Coin.Sha256)
             } else {
-                Text("None given", style = MaterialTheme.typography.titleMedium, color = TextFaint)
+                Text(stringResource(R.string.send_none_given), style = MaterialTheme.typography.titleMedium, color = TextFaint)
             }
         }
     }
@@ -519,19 +524,25 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
     AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
         t.amountSat?.let { sha ->
             val fiat = est?.let { Format.sha256Fiat(sha, it.rate, wallet.fiatPrice, wallet.fiatCurrency) }
-            InfoRow("Pays on the SHA256 chain", Format.amountWithUnit(sha, ui.unit, Coin.Sha256) + (fiat?.let { ", $it" } ?: ""))
+            val amount = Format.amountWithUnit(sha, ui.unit, Coin.Sha256)
+            InfoRow(
+                stringResource(R.string.send_pays_sha256),
+                if (fiat != null) stringResource(R.string.send_amount_with_fiat, amount, fiat) else amount,
+            )
         }
-        est?.let { InfoRow("Service fee", "${Format.amountWithUnit(it.feeSat, ui.unit, Coin.Btcb2)}, included") }
+        est?.let { InfoRow(stringResource(R.string.send_service_fee), stringResource(R.string.send_service_fee_included, Format.amountWithUnit(it.feeSat, ui.unit, Coin.Btcb2))) }
         t.expiresAt?.let { ExpiryRow(it) }
+        val expanded = stringResource(R.string.send_expanded)
+        val collapsed = stringResource(R.string.send_collapsed)
         Row(
             Modifier
                 .fillMaxWidth()
                 .clickable(role = Role.Button) { details = !details }
-                .semantics { stateDescription = if (details) "Expanded" else "Collapsed" }
+                .semantics { stateDescription = if (details) expanded else collapsed }
                 .padding(vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Details", style = MaterialTheme.typography.bodyMedium, color = Accent, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.send_details), style = MaterialTheme.typography.bodyMedium, color = Accent, modifier = Modifier.weight(1f))
             Icon(
                 if (details) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                 contentDescription = null,
@@ -542,38 +553,38 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
         AnimatedVisibility(details) {
             Column {
                 if (est != null && est.rate > 0) {
-                    InfoRow("Rate", "1 BTC (SHA256) ≈ ${Format.inverseRate(est.rate)} BTCB2")
-                    InfoRow("", "1 BTCB2 = ${Format.rate(est.rate)} BTC (SHA256)", valueColor = TextMuted)
+                    InfoRow(stringResource(R.string.send_rate), stringResource(R.string.send_rate_inverse, Format.inverseRate(est.rate)))
+                    InfoRow("", stringResource(R.string.send_rate_direct, Format.rate(est.rate)), valueColor = TextMuted)
                 }
                 val ref = t.reference
                 if (ref != null) {
                     InfoRow(
-                        "Against the market",
-                        if (ref.premium >= 0) "${Format.percent(ref.premium)} above" else "${Format.percent(-ref.premium)} below",
+                        stringResource(R.string.send_against_market),
+                        if (ref.premium >= 0) stringResource(R.string.send_premium_above, Format.percent(ref.premium)) else stringResource(R.string.send_premium_below, Format.percent(-ref.premium)),
                         valueColor = if (ref.withinLimit) TextPrimary else Warning,
                     )
-                    InfoRow("Allowed", "Up to ${Format.percent(ref.premiumAllowed)} above")
-                    if (ref.source.isNotBlank()) InfoRow("Market rate from", ref.source)
+                    InfoRow(stringResource(R.string.send_allowed), stringResource(R.string.send_allowed_up_to, Format.percent(ref.premiumAllowed)))
+                    if (ref.source.isNotBlank()) InfoRow(stringResource(R.string.send_market_rate_from), ref.source)
                 } else if (t.referenceError != null) {
-                    InfoRow("Market rate", "Not available", valueColor = Warning)
+                    InfoRow(stringResource(R.string.send_market_rate), stringResource(R.string.send_not_available), valueColor = Warning)
                 }
                 if (est != null && est.minSat != null && est.maxSat != null && est.maxSat > 0) {
-                    InfoRow("Service pays", "${Format.sats(est.minSat)} to ${Format.amountWithUnit(est.maxSat, AmountUnitSats, Coin.Sha256)}")
+                    InfoRow(stringResource(R.string.send_service_pays), stringResource(R.string.send_service_pays_range, Format.sats(est.minSat), Format.amountWithUnit(est.maxSat, AmountUnitSats, Coin.Sha256)))
                 }
-                if (t.description.isNotBlank()) InfoRow("Description", t.description)
+                if (t.description.isNotBlank()) InfoRow(stringResource(R.string.send_description), t.description)
             }
         }
     }
     if (est != null) {
         Text(
-            "Includes up to ${Format.amountWithUnit(est.routingFeeLimitSat, ui.unit, Coin.Btcb2)} for routing to the service.",
+            stringResource(R.string.send_includes_routing, Format.amountWithUnit(est.routingFeeLimitSat, ui.unit, Coin.Btcb2)),
             style = MaterialTheme.typography.bodySmall,
             color = TextMuted,
             modifier = Modifier.padding(top = 10.dp, start = 4.dp),
         )
     }
     Text(
-        "Lightning balance: ${Format.amountWithUnit(wallet.wallet?.lightning?.outboundSat ?: 0, ui.unit, Coin.Btcb2)}",
+        stringResource(R.string.send_lightning_balance, Format.amountWithUnit(wallet.wallet?.lightning?.outboundSat ?: 0, ui.unit, Coin.Btcb2)),
         style = MaterialTheme.typography.bodySmall,
         color = TextMuted,
         modifier = Modifier.padding(top = 6.dp, start = 4.dp),
@@ -587,15 +598,15 @@ private val AmountUnitSats = com.paulscode.lightningfork.data.AmountUnit.Sats
 fun Sha256Explainer(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
-        title = { Text("Paying a SHA256 invoice") },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.send_explainer_ok)) } },
+        title = { Text(stringResource(R.string.send_explainer_title)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("A SHA256 invoice asks to be paid on the SHA256 chain's Lightning network. Your node can't pay there itself, so a service pays it for you, and you pay the service in BTCB2.")
-                Text("You don't have to trust the service: your payment to it is locked to the same invoice, so it can only collect by paying the SHA256 invoice. If it doesn't, your payment comes back to you.")
-                Text("The price is the service's rate and fee. Your node checks it against the market rate, and you agree to the most it can cost before anything is paid.")
-                Text("It is usually paid within a minute or two. If the service stalls, your payment can stay held until its time runs out, at most about two weeks, and then comes back.")
-                Text("The service is the one set up in the dashboard, under Paying SHA256 invoices.", color = TextMuted)
+                Text(stringResource(R.string.send_explainer_1))
+                Text(stringResource(R.string.send_explainer_2))
+                Text(stringResource(R.string.send_explainer_3))
+                Text(stringResource(R.string.send_explainer_4))
+                Text(stringResource(R.string.send_explainer_5), color = TextMuted)
             }
         },
     )
@@ -612,8 +623,8 @@ private fun ExpiryRow(expiresAt: Long) {
     }
     val left = expiresAt - now
     InfoRow(
-        "Expires",
-        if (left <= 0) "Expired" else "in ${Format.countdown(left)}",
+        stringResource(R.string.send_expires),
+        if (left <= 0) stringResource(R.string.send_expired) else stringResource(R.string.send_expires_in, Format.countdown(left)),
         valueColor = if (left < 120) Warning else TextPrimary,
     )
 }
@@ -621,7 +632,7 @@ private fun ExpiryRow(expiresAt: Long) {
 @Composable
 private fun FeeSelector(ui: SendUi, vm: SendViewModel) {
     val fees = ui.fees
-    Text("Network fee", style = MaterialTheme.typography.labelMedium, color = TextMuted, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+    Text(stringResource(R.string.send_network_fee), style = MaterialTheme.typography.labelMedium, color = TextMuted, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         listOf(FeeLevel.Low, FeeLevel.Medium, FeeLevel.High).forEach { level ->
             val rate = fees?.let {
@@ -643,10 +654,18 @@ private fun FeeSelector(ui: SendUi, vm: SendViewModel) {
                     .padding(vertical = 12.dp, horizontal = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(rate?.label ?: level.name, style = MaterialTheme.typography.labelLarge, color = if (selected) TextPrimary else TextMuted)
+                Text(
+                    rate?.label ?: stringResource(
+                        when (level) {
+                            FeeLevel.Low -> R.string.send_fee_low
+                            FeeLevel.Medium -> R.string.send_fee_medium
+                            FeeLevel.High -> R.string.send_fee_high
+                        },
+                    ),
+                    style = MaterialTheme.typography.labelLarge, color = if (selected) TextPrimary else TextMuted)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    rate?.let { "${it.satPerVbyte} sat/vB" } ?: "…",
+                    rate?.let { stringResource(R.string.send_sat_per_vb, Format.sats(it.satPerVbyte)) } ?: "…",
                     style = MaterialTheme.typography.titleSmall,
                     color = if (selected) Accent else TextPrimary,
                 )
@@ -661,7 +680,7 @@ private fun FeeSelector(ui: SendUi, vm: SendViewModel) {
     }
     fees?.source?.let {
         Text(
-            "Rates from ${it.name}",
+            stringResource(R.string.send_rates_from, it.name),
             style = MaterialTheme.typography.bodySmall,
             color = TextFaint,
             modifier = Modifier.padding(top = 8.dp, start = 4.dp),
@@ -698,9 +717,9 @@ private fun SendingStep(ui: SendUi, onClose: () -> Unit) {
             Spacer(Modifier.height(28.dp))
             Text(
                 when {
-                    ui.repricing -> "Getting the price…"
-                    ui.checking -> "Checking…"
-                    else -> "Sending…"
+                    ui.repricing -> stringResource(R.string.send_getting_price)
+                    ui.checking -> stringResource(R.string.send_checking)
+                    else -> stringResource(R.string.send_sending)
                 },
                 style = MaterialTheme.typography.headlineMedium,
                 color = TextPrimary,
@@ -708,11 +727,11 @@ private fun SendingStep(ui: SendUi, onClose: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             Text(
                 when {
-                    ui.repricing -> "Your node is asking the service what this SHA256 invoice costs now."
-                    ui.checking -> "Your node is looking up this payment. It is never paid twice."
-                    ui.sendingBitcoinInvoice -> "Your node pays the service, which pays the SHA256 invoice. This can take a minute or two."
-                    ui.onchain -> "Your node is signing and broadcasting the transaction."
-                    else -> "Your node is finding a route to the recipient."
+                    ui.repricing -> stringResource(R.string.send_sending_repricing)
+                    ui.checking -> stringResource(R.string.send_sending_checking)
+                    ui.sendingBitcoinInvoice -> stringResource(R.string.send_sending_sha256)
+                    ui.onchain -> stringResource(R.string.send_sending_onchain)
+                    else -> stringResource(R.string.send_sending_lightning)
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextMuted,
@@ -721,9 +740,9 @@ private fun SendingStep(ui: SendUi, onClose: () -> Unit) {
         }
         AnimatedVisibility(canLeave && !ui.repricing) {
             Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                SecondaryButton("Close, it carries on", onClick = onClose, modifier = Modifier.fillMaxWidth())
+                SecondaryButton(stringResource(R.string.send_close_carries_on), onClick = onClose, modifier = Modifier.fillMaxWidth())
                 Text(
-                    "Home shows it until it's done, and lets you check it.",
+                    stringResource(R.string.send_close_carries_on_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextFaint,
                     textAlign = TextAlign.Center,
@@ -757,9 +776,9 @@ private fun DoneStep(ui: SendUi, onClose: () -> Unit) {
             val bitcoinAmount = r.bitcoinAmountSat
             Text(
                 when {
-                    bitcoinAmount != null -> "SHA256 invoice paid"
-                    r.lightning -> "Sent"
-                    else -> "Sent · confirming"
+                    bitcoinAmount != null -> stringResource(R.string.send_sha256_paid)
+                    r.lightning -> stringResource(R.string.send_sent)
+                    else -> stringResource(R.string.send_sent_confirming)
                 },
                 style = MaterialTheme.typography.headlineMedium,
                 color = TextPrimary,
@@ -774,20 +793,22 @@ private fun DoneStep(ui: SendUi, onClose: () -> Unit) {
                 coin = if (bitcoinAmount != null) Coin.Sha256 else null,
             )
             if (bitcoinAmount != null) {
-                Text("paid on the SHA256 chain", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                Text(stringResource(R.string.send_paid_on_sha256), style = MaterialTheme.typography.bodySmall, color = TextMuted)
             }
             Spacer(Modifier.height(24.dp))
             AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
-                if (bitcoinAmount != null) InfoRow("Cost", Format.amountWithUnit(r.amountSat, ui.unit, coin))
+                if (bitcoinAmount != null) InfoRow(stringResource(R.string.send_cost), Format.amountWithUnit(r.amountSat, ui.unit, coin))
                 InfoRow(
-                    if (r.lightning) "Routing fee" else "Network fee",
+                    stringResource(if (r.lightning) R.string.send_routing_fee else R.string.send_network_fee),
                     // The node reports a Lightning fee as paid; an on-chain one
                     // here is the estimate it was sent at.
-                    (if (r.lightning) "" else "≈ ") + Format.amountWithUnit(r.feeSat, ui.unit, coin),
+                    Format.amountWithUnit(r.feeSat, ui.unit, coin).let { fee ->
+                        if (r.lightning) fee else stringResource(R.string.format_approx, fee)
+                    },
                 )
                 // What it came to here, against the most agreed to.
                 if (bitcoinAmount != null) {
-                    InfoRow("Total", Format.amountWithUnit(r.amountSat + r.feeSat, ui.unit, coin), emphasize = true)
+                    InfoRow(stringResource(R.string.send_total), Format.amountWithUnit(r.amountSat + r.feeSat, ui.unit, coin), emphasize = true)
                 }
                 Row(
                     Modifier.fillMaxWidth().clickable {
@@ -795,15 +816,15 @@ private fun DoneStep(ui: SendUi, onClose: () -> Unit) {
                     }.padding(vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(if (r.lightning) "Proof of payment" else "Transaction", style = MaterialTheme.typography.bodyMedium, color = TextMuted)
+                    Text(if (r.lightning) stringResource(R.string.send_proof_of_payment) else stringResource(R.string.send_transaction), style = MaterialTheme.typography.bodyMedium, color = TextMuted)
                     Spacer(Modifier.weight(1f))
                     Text(Format.middle(r.reference, 8, 8), style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace), color = TextPrimary)
                     Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Rounded.ContentCopy, contentDescription = "Copy", tint = Accent, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.ContentCopy, contentDescription = stringResource(R.string.send_copy), tint = Accent, modifier = Modifier.size(18.dp))
                 }
             }
         }
-        PrimaryButton("Done", onClick = onClose, modifier = Modifier.fillMaxWidth().padding(20.dp))
+        PrimaryButton(stringResource(R.string.send_done), onClick = onClose, modifier = Modifier.fillMaxWidth().padding(20.dp))
     }
 }
 
@@ -848,31 +869,30 @@ private fun FailedStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Text(
                 when {
-                    ui.onItsWay -> "On its way"
-                    ui.uncertain -> "Not sure it went through"
-                    ui.alreadyPaid -> "Already paid"
-                    ui.needsOperator -> "SHA256 invoice paid"
-                    else -> "Payment didn't go through"
+                    ui.onItsWay -> stringResource(R.string.send_failed_on_its_way)
+                    ui.uncertain -> stringResource(R.string.send_failed_uncertain)
+                    ui.alreadyPaid -> stringResource(R.string.send_failed_already_paid)
+                    ui.needsOperator -> stringResource(R.string.send_sha256_paid)
+                    else -> stringResource(R.string.send_failed)
                 },
                 style = MaterialTheme.typography.headlineSmall,
                 color = TextPrimary,
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(10.dp))
-            Text(ui.error.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = TextMuted, textAlign = TextAlign.Center)
+            Text(ui.error.textOrNull().orEmpty(), style = MaterialTheme.typography.bodyMedium, color = TextMuted, textAlign = TextAlign.Center)
             ui.hint?.let {
                 Spacer(Modifier.height(8.dp))
-                Text(it, style = MaterialTheme.typography.bodySmall, color = TextPrimary, textAlign = TextAlign.Center)
+                Text(it.text(), style = MaterialTheme.typography.bodySmall, color = TextPrimary, textAlign = TextAlign.Center)
             }
             if (ui.uncertain) {
                 Spacer(Modifier.height(10.dp))
                 Text(
                     if (ui.onItsWay) {
-                        "The service pays the SHA256 invoice first, which can take a while. " +
-                            (ui.maxHoldHours?.let { "If it never pays, your payment comes back, within ${Format.hoursRoughly(it)}. " } ?: "If it never pays, your payment comes back. ") +
-                            "Checking never pays it twice."
+                        ui.maxHoldHours?.let { stringResource(R.string.send_on_its_way_within, Format.hoursRoughly(it)) }
+                            ?: stringResource(R.string.send_on_its_way)
                     } else {
-                        "Check again asks your node about this same payment and never pays it twice. Your activity shows it too once it went through."
+                        stringResource(R.string.send_uncertain_explained)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = TextFaint,
@@ -883,7 +903,7 @@ private fun FailedStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(color = Accent, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Checking again on its own", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                        Text(stringResource(R.string.send_checking_on_its_own), style = MaterialTheme.typography.bodySmall, color = TextMuted)
                     }
                 }
             }
@@ -893,21 +913,21 @@ private fun FailedStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit) {
                     Modifier.fillMaxWidth().clickable { Clipboard.copySensitive(context, proof, "preimage") }.padding(vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Proof of payment", style = MaterialTheme.typography.bodyMedium, color = TextMuted)
+                    Text(stringResource(R.string.send_proof_of_payment), style = MaterialTheme.typography.bodyMedium, color = TextMuted)
                     Spacer(Modifier.weight(1f))
                     Text(Format.middle(proof, 8, 8), style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace), color = TextPrimary)
                     Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Rounded.ContentCopy, contentDescription = "Copy", tint = Accent, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.ContentCopy, contentDescription = stringResource(R.string.send_copy), tint = Accent, modifier = Modifier.size(18.dp))
                 }
             }
         }
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             when {
                 ui.uncertain -> {
-                    PrimaryButton("Check again", onClick = vm::retry, modifier = Modifier.fillMaxWidth())
-                    SecondaryButton("Close", onClick = onClose, modifier = Modifier.fillMaxWidth())
+                    PrimaryButton(stringResource(R.string.send_check_again), onClick = vm::retry, modifier = Modifier.fillMaxWidth())
+                    SecondaryButton(stringResource(R.string.send_close), onClick = onClose, modifier = Modifier.fillMaxWidth())
                     com.paulscode.lightningfork.ui.components.QuietButton(
-                        "I checked my activity: forget this payment",
+                        stringResource(R.string.send_forget),
                         onClick = {
                             vm.dismissUncertain()
                             onClose()
@@ -918,18 +938,22 @@ private fun FailedStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit) {
                 }
                 // Nothing to try again: paid already, something to change in
                 // the dashboard first, or nothing to try it with.
-                !vm.canRetry(ui) -> PrimaryButton("Close", onClick = onClose, modifier = Modifier.fillMaxWidth())
+                !vm.canRetry(ui) -> PrimaryButton(stringResource(R.string.send_close), onClick = onClose, modifier = Modifier.fillMaxWidth())
                 else -> {
                     PrimaryButton(
-                        if (waitSeconds > 0) "Try again in ${waitSeconds}s" else "Try again",
+                        if (waitSeconds > 0) {
+                            pluralStringResource(R.plurals.send_try_again_in_seconds, waitSeconds.toInt(), Format.sats(waitSeconds))
+                        } else {
+                            stringResource(R.string.send_try_again)
+                        },
                         onClick = vm::retry,
                         enabled = waitSeconds == 0L,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     if (ui.target != null) {
-                        SecondaryButton("Back", onClick = vm::backToReview, modifier = Modifier.fillMaxWidth())
+                        SecondaryButton(stringResource(R.string.send_back), onClick = vm::backToReview, modifier = Modifier.fillMaxWidth())
                     } else {
-                        SecondaryButton("Close", onClick = onClose, modifier = Modifier.fillMaxWidth())
+                        SecondaryButton(stringResource(R.string.send_close), onClick = onClose, modifier = Modifier.fillMaxWidth())
                     }
                 }
             }

@@ -43,6 +43,8 @@ fun AnimatedAmount(
     color: Color = Color.Unspecified,
     unitColor: Color = TextMuted,
     showUnit: Boolean = true,
+    /** Named for its chain, where amounts of both are shown. */
+    coin: com.paulscode.lightningfork.util.Coin? = null,
 ) {
     // What is on screen at rest, and the count under way: until the count
     // for a new value starts, the old value stays; a new value mid-count
@@ -72,7 +74,7 @@ fun AnimatedAmount(
     var scale by remember(unit, sizeKey) { mutableFloatStateOf(1f) }
     var fitted by remember(unit, sizeKey) { mutableFloatStateOf(0f) }
     Row(
-        modifier = modifier.semantics { contentDescription = Format.amountWithUnit(sats, unit) },
+        modifier = modifier.semantics { contentDescription = Format.amountWithUnit(sats, unit, coin) },
         verticalAlignment = Alignment.Bottom,
     ) {
         Text(
@@ -90,7 +92,7 @@ fun AnimatedAmount(
         )
         if (showUnit) {
             Text(
-                Format.unitLabel(unit, sats),
+                Format.unitLabel(unit, sats, coin),
                 style = unitStyle,
                 color = unitColor,
                 maxLines = 1,

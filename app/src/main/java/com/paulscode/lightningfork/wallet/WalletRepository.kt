@@ -53,6 +53,8 @@ data class WalletState(
     val repair: Repair? = null,
     /** USD per BTC, when known and wanted. */
     val usdPrice: Double? = null,
+    /** The dashboard's /bootstrap: what it can do and its SHA256 invoice service; null until read. */
+    val dashboard: com.paulscode.lightningfork.net.BootstrapResponse? = null,
 )
 
 /**
@@ -240,7 +242,7 @@ class WalletRepository(
             if (generation != genAtStart) return@onSuccess
             lastNodeMs = System.currentTimeMillis()
             settings.node = boot.node
-            _state.update { it.copy(node = boot.node) }
+            _state.update { it.copy(node = boot.node, dashboard = boot) }
         }
         // Learn the node's addresses afresh: a phone paired over Tor learns its
         // LAN address, and the other way round.

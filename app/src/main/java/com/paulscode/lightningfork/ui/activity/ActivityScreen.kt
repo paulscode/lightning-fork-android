@@ -43,6 +43,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.paulscode.lightningfork.data.AmountUnit
 import com.paulscode.lightningfork.net.ActivityItem
@@ -64,6 +66,7 @@ import com.paulscode.lightningfork.ui.theme.TextMuted
 import com.paulscode.lightningfork.ui.theme.TextPrimary
 import com.paulscode.lightningfork.ui.theme.Warning
 import com.paulscode.lightningfork.util.Clipboard
+import com.paulscode.lightningfork.util.Coin
 import com.paulscode.lightningfork.util.Format
 import kotlinx.coroutines.launch
 
@@ -87,6 +90,14 @@ fun ActivityScreen(api: NodeApi, unit: AmountUnit, onClose: () -> Unit) {
         }
     }
     LaunchedEffect(Unit) { load() }
+    // A SHA256 invoice on its way is looked at again until it is not.
+    val waiting = items?.let { ActivityLabels.anyOnItsWay(it) } == true
+    LaunchedEffect(waiting) {
+        while (waiting) {
+            kotlinx.coroutines.delay(15_000)
+            load()
+        }
+    }
 
     Column(Modifier.fillMaxSize().background(Page).statusBarsPadding().navigationBarsPadding()) {
         TopBar("Activity", onBack = onClose)
@@ -137,11 +148,16 @@ private fun ActivityRow(item: ActivityItem, unit: AmountUnit) {
     // A Bitcoin invoice opens to its details: what it paid, and the proof.
     var open by remember { mutableStateOf(false) }
     Column(
-        if (bitcoin != null) Modifier.fillMaxWidth().clickable(onClickLabel = "Show details") { open = !open } else Modifier.fillMaxWidth(),
+        if (bitcoin != null) {
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClickLabel = if (open) "Hide details" else "Show details") { open = !open }
+                .semantics { stateDescription = if (open) "Expanded" else "Collapsed" }
+        } else Modifier.fillMaxWidth(),
     ) {
         Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box {
-                if (item.kind == "onchain" || bitcoin != null) BitcoinMark(40.dp) else LightningMark(40.dp)
+                if (item.kind == "onchain") BitcoinMark(40.dp) else LightningMark(40.dp)
                 Box(
                     Modifier
                         .align(Alignment.BottomEnd)
@@ -164,16 +180,26 @@ private fun ActivityRow(item: ActivityItem, unit: AmountUnit) {
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(ActivityLabels.title(item), style = MaterialTheme.typography.titleSmall, color = TextPrimary, maxLines = 1)
+                ActivityLabels.subtitle(item)?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = TextMuted, maxLines = 1)
+                }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(Format.ago(item.timestamp), style = MaterialTheme.typography.bodySmall, color = TextFaint)
                     ActivityLabels.status(item)?.let { (text, tone) ->
-                        Pill(text, color = if (tone == StatusTone.Waiting) Warning else Danger)
+                        Pill(
+                            text,
+                            color = when (tone) {
+                                StatusTone.Waiting -> Warning
+                                StatusTone.Returned -> TextMuted
+                                StatusTone.Failed -> Danger
+                            },
+                        )
                     }
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    (if (incoming) "+" else "−") + Format.amountWithUnit(item.amountSat, unit),
+                    (if (incoming) "+" else "−") + Format.amountWithUnit(item.amountSat, unit, if (bitcoin != null) Coin.Btcb2 else null),
                     style = MaterialTheme.typography.titleSmall,
                     color = when {
                         ActivityLabels.didNotMove(item) -> TextFaint
@@ -182,7 +208,7 @@ private fun ActivityRow(item: ActivityItem, unit: AmountUnit) {
                     },
                 )
                 if (bitcoin != null) {
-                    Text("${Format.amountWithUnit(bitcoin.amountSat, unit)} on the SHA256 chain", style = MaterialTheme.typography.bodySmall, color = TextFaint)
+                    Text("paid ${Format.amountWithUnit(bitcoin.amountSat, unit, Coin.Sha256)}", style = MaterialTheme.typography.bodySmall, color = TextFaint)
                 } else if (!incoming && item.feeSat > 0) {
                     Text("fee ${Format.amountWithUnit(item.feeSat, unit)}", style = MaterialTheme.typography.bodySmall, color = TextFaint)
                 }
@@ -203,15 +229,17 @@ private fun BitcoinInvoiceDetails(item: ActivityItem, unit: AmountUnit) {
     Column(Modifier.fillMaxWidth().padding(start = 54.dp, bottom = 12.dp)) {
         val about = bitcoin.description.ifBlank { item.description }
         if (about.isNotBlank()) InfoRow("Description", about)
-        InfoRow("Paid on the SHA256 chain", Format.amountWithUnit(bitcoin.amountSat, unit))
-        InfoRow("Cost", Format.amountWithUnit(item.amountSat, unit))
-        if (item.feeSat > 0) InfoRow("Routing fee", Format.amountWithUnit(item.feeSat, unit))
+        InfoRow("Paid on the SHA256 chain", Format.amountWithUnit(bitcoin.amountSat, unit, Coin.Sha256))
+        InfoRow("Cost", Format.amountWithUnit(item.amountSat, unit, Coin.Btcb2))
+        if (item.feeSat > 0) InfoRow("Routing fee", Format.amountWithUnit(item.feeSat, unit, Coin.Btcb2))
+        InfoRow("Total", Format.amountWithUnit(item.amountSat + item.feeSat, unit, Coin.Btcb2), emphasize = true)
+        if (bitcoin.serviceLabel.isNotBlank()) InfoRow("Service", bitcoin.serviceLabel)
         InfoRow(
             "Status",
             when (bitcoin.state) {
                 "paid" -> "Paid"
                 "pending" -> "On its way"
-                "returned" -> "Returned, nothing was paid"
+                "returned" -> "Came back, nothing was paid"
                 else -> bitcoin.state
             },
         )

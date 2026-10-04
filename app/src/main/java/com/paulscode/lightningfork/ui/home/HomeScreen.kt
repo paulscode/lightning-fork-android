@@ -435,7 +435,7 @@ private fun PendingSendCard(p: com.paulscode.lightningfork.net.PendingSend, unit
             Text("A payment didn't finish", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
             Text(
                 if (p.bitcoinInvoice != null) {
-                    "A SHA256 invoice, for at most ${Format.amountWithUnit(p.amountSat, unit)}. Check whether it went through."
+                    "A SHA256 invoice, for at most ${Format.amountWithUnit(p.amountSat, unit, com.paulscode.lightningfork.util.Coin.Btcb2)}${ageOf(p)}. Check whether it went through."
                 } else {
                     "${Format.amountWithUnit(p.amountSat, unit)} ${if (p.lightning) "over Lightning" else "on-chain"}. Check whether it went through."
                 },
@@ -446,4 +446,11 @@ private fun PendingSendCard(p: com.paulscode.lightningfork.net.PendingSend, unit
         Spacer(Modifier.width(12.dp))
         Text("Check", style = MaterialTheme.typography.labelLarge, color = Accent)
     }
+}
+
+/** When an unfinished payment started, if not today: ", from 3 d ago". */
+private fun ageOf(p: com.paulscode.lightningfork.net.PendingSend): String {
+    if (p.startedAtMs <= 0) return ""
+    val ageMs = System.currentTimeMillis() - p.startedAtMs
+    return if (ageMs < 12 * 3600_000L) "" else ", from ${Format.ago(p.startedAtMs / 1000)}"
 }

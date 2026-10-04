@@ -138,7 +138,7 @@ private fun Welcome(ui: PairUi, onScan: () -> Unit, onPaste: () -> Unit) {
         Text("Lightning Fork", style = MaterialTheme.typography.displaySmall, color = TextPrimary)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Send and receive from your own node, on the Bitcoin BLAKE2b chain.",
+            "Send and receive BTCB2 from your own node, on the BLAKE2b chain.",
             style = MaterialTheme.typography.bodyLarge,
             color = TextMuted,
         )

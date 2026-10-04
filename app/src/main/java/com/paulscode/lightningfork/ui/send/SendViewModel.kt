@@ -66,6 +66,22 @@ data class SendUi(
     val repricing: Boolean = false,
     /** Why the review is shown again, such as a new price. */
     val reviewNotice: String? = null,
+    /** Asking about a payment sent before, not sending one. */
+    val checking: Boolean = false,
+    /** Asking again on its own while a SHA256 invoice is on its way. */
+    val autoChecking: Boolean = false,
+    /** The proof of a SHA256 invoice paid already, when the node had it. */
+    val proof: String? = null,
+    /** How long a payment the service holds can stay held, in hours. */
+    val maxHoldHours: Long? = null,
+    /** When trying again can help, after a wait (epoch ms). */
+    val retryAtMs: Long? = null,
+    /** Where to fix what stopped the payment. */
+    val hint: String? = null,
+    /** The service paid the SHA256 invoice and did not collect. */
+    val needsOperator: Boolean = false,
+    /** Refused as paid already: not a failure. */
+    val alreadyPaid: Boolean = false,
 ) {
     /** What will actually be paid: the request, or its on-chain alternative. */
     val active: PaymentTarget?
@@ -83,7 +99,9 @@ data class SendUi(
         get() {
             val t = active ?: return null
             if (!t.isBitcoinInvoice) return null
-            if (!t.payable || t.estimate == null) return "Can't pay this now"
+            if (!t.payable || t.estimate == null) {
+                return SendRules.blockerLabel(t.messageCode ?: t.estimate?.refusalCode)
+            }
             return null
         }
 
@@ -120,6 +138,8 @@ class SendViewModel(
     val ui: StateFlow<SendUi> = _ui
 
     private var estimateJob: Job? = null
+    private var pollJob: Job? = null
+    private var pollUntilMs = 0L
     private var requestId = NodeApi.newRequestId()
     private var lastSent: PendingSend? = null
 
@@ -185,10 +205,24 @@ class SendViewModel(
                     }
                 }
             } catch (e: ApiException) {
-                _ui.update { it.copy(decoding = false, inputError = e.message) }
+                _ui.update { it.copy(decoding = false, inputError = decodeError(e)) }
             } catch (e: Exception) {
                 _ui.update { it.copy(decoding = false, inputError = "Can't reach your node to read this. Try again.") }
             }
+        }
+    }
+
+    /**
+     * A dashboard too old to pay SHA256 invoices says the recipient has not
+     * upgraded; it is the user's own dashboard that is behind.
+     */
+    private fun decodeError(e: ApiException): String {
+        val dashboard = wallet.state.value.dashboard
+        val old = dashboard != null && !dashboard.paysSha256Invoices
+        return if (old && e.code == null && e.message.contains("has not upgraded")) {
+            "This looks like a SHA256 invoice. Your dashboard is too old to pay those: update Lightning Fork on your node."
+        } else {
+            e.message
         }
     }
 
@@ -327,23 +361,35 @@ class SendViewModel(
     /**
      * Sends [pending], or asks again about it: the same request with the same
      * id, which the node answers with the first outcome instead of sending
-     * twice. Kept on the phone until the outcome is known.
+     * twice. Kept on the phone until the outcome is known. [quiet]: asking on
+     * its own while a SHA256 invoice is on its way, without leaving that
+     * screen.
      */
-    private fun execute(pending: PendingSend, again: Boolean = false) {
+    private fun execute(pending: PendingSend, again: Boolean = false, quiet: Boolean = false) {
         lastSent = pending
         settings.pendingSend = pending
         val bitcoin = pending.bitcoinInvoice != null
-        _ui.update {
-            it.copy(
-                step = SendStep.Sending,
-                error = null,
-                uncertain = false,
-                onItsWay = false,
-                retryable = true,
-                sendingBitcoinInvoice = bitcoin,
-                repricing = false,
-                reviewNotice = null,
-            )
+        if (!quiet) {
+            pollJob?.cancel()
+            _ui.update {
+                it.copy(
+                    step = SendStep.Sending,
+                    error = null,
+                    uncertain = false,
+                    onItsWay = false,
+                    retryable = true,
+                    sendingBitcoinInvoice = bitcoin,
+                    repricing = false,
+                    reviewNotice = null,
+                    checking = again,
+                    autoChecking = false,
+                    proof = null,
+                    retryAtMs = null,
+                    hint = null,
+                    needsOperator = false,
+                    alreadyPaid = false,
+                )
+            }
         }
         viewModelScope.launch {
             try {
@@ -373,7 +419,8 @@ class SendViewModel(
                     }
                 }
                 settings.pendingSend = null
-                _ui.update { it.copy(step = SendStep.Done, result = result) }
+                pollJob?.cancel()
+                _ui.update { it.copy(step = SendStep.Done, result = result, autoChecking = false, checking = false) }
                 wallet.refresh()
             } catch (e: CancellationException) {
                 throw e
@@ -385,6 +432,7 @@ class SendViewModel(
                     // The node said no: nothing moved, and a new attempt is a
                     // new payment.
                     settings.pendingSend = null
+                    pollJob?.cancel()
                     requestId = NodeApi.newRequestId()
                     if (bitcoin && e.code == SendRules.PRICE_CHANGED) {
                         // The service asks more than was agreed: the new
@@ -397,34 +445,80 @@ class SendViewModel(
                             step = SendStep.Failed,
                             error = e.message,
                             uncertain = false,
-                            retryable = !(bitcoin && e.code == SendRules.ALREADY_PAID),
+                            onItsWay = false,
+                            autoChecking = false,
+                            checking = false,
+                            retryable = !bitcoin || SendRules.retryable(e.code),
+                            proof = e.details?.preimage?.takeIf { p -> p.isNotBlank() },
+                            retryAtMs = e.details?.retryAfterSeconds?.let { s -> System.currentTimeMillis() + s * 1000 },
+                            hint = if (bitcoin) SendRules.dashboardHint(e.code) else null,
+                            needsOperator = bitcoin && e.code == SendRules.NEEDS_OPERATOR,
+                            alreadyPaid = bitcoin && e.code == SendRules.ALREADY_PAID,
                         )
                     }
                 } else {
                     // A cut-off call or a server error: the money may have
-                    // moved. Asking again with the same id is safe. A Bitcoin
-                    // invoice may simply still be being paid.
+                    // moved. Asking again with the same id is safe. A SHA256
+                    // invoice may simply still be being paid, and is then
+                    // asked about again on its own for a while.
+                    val onItsWay = SendRules.onItsWay(e, bitcoin)
                     _ui.update {
-                        it.copy(step = SendStep.Failed, error = e.message, uncertain = true, onItsWay = SendRules.onItsWay(e, bitcoin))
+                        it.copy(
+                            step = SendStep.Failed,
+                            error = e.message,
+                            uncertain = true,
+                            onItsWay = onItsWay,
+                            checking = false,
+                            maxHoldHours = e.details?.maxHoldHours ?: it.maxHoldHours,
+                        )
                     }
+                    if (onItsWay) keepChecking(pending) else _ui.update { it.copy(autoChecking = false) }
                 }
             } catch (e: com.paulscode.lightningfork.net.KeyUnavailableException) {
                 // Nothing was sent now; on a re-ask, the first may have been.
                 if (again) {
-                    _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = true) }
+                    _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = true, autoChecking = false, checking = false) }
                 } else {
                     settings.pendingSend = null
-                    _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = false) }
+                    _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = false, checking = false) }
                 }
             } catch (e: Exception) {
+                if (quiet && _ui.value.onItsWay) {
+                    // Asked on its own and not answered: it is still on its
+                    // way as far as anyone knows. Asked again later.
+                    keepChecking(pending)
+                    return@launch
+                }
                 _ui.update {
                     it.copy(
                         step = SendStep.Failed,
                         error = "Lost touch with your node before it answered. The payment may still go through.",
                         uncertain = true,
+                        onItsWay = false,
+                        autoChecking = false,
+                        checking = false,
                     )
                 }
             }
+        }
+    }
+
+    /**
+     * While a SHA256 invoice is on its way, asks about it again every few
+     * seconds, for a quarter of an hour; Check again stays there for after.
+     */
+    private fun keepChecking(pending: PendingSend) {
+        val now = System.currentTimeMillis()
+        if (pollJob?.isActive != true && !_ui.value.autoChecking) pollUntilMs = now + POLL_FOR_MS
+        if (now >= pollUntilMs) {
+            _ui.update { it.copy(autoChecking = false) }
+            return
+        }
+        _ui.update { it.copy(autoChecking = true) }
+        pollJob?.cancel()
+        pollJob = viewModelScope.launch {
+            delay(POLL_EVERY_MS)
+            if (_ui.value.step == SendStep.Failed && _ui.value.onItsWay) execute(pending, again = true, quiet = true)
         }
     }
 
@@ -473,6 +567,7 @@ class SendViewModel(
     fun retry() {
         val s = _ui.value
         if (s.step != SendStep.Failed) return
+        if (s.retryAtMs != null && System.currentTimeMillis() < s.retryAtMs) return
         val sent = lastSent
         val bitcoinRequest = sent?.bitcoinInvoice?.request ?: s.target?.takeIf { it.isBitcoinInvoice }?.request
         if (s.uncertain && sent != null) {
@@ -491,4 +586,13 @@ class SendViewModel(
     }
 
     fun backToReview() = _ui.update { it.copy(step = SendStep.Review, error = null, reviewNotice = null) }
+
+    /** Whether there is a payment to try again: the one reviewed, or the one checked from Home. */
+    fun canRetry(s: SendUi = _ui.value): Boolean =
+        s.retryable && (s.target != null || lastSent?.bitcoinInvoice != null)
+
+    private companion object {
+        const val POLL_EVERY_MS = 8_000L
+        const val POLL_FOR_MS = 15 * 60_000L
+    }
 }

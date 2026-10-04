@@ -40,6 +40,7 @@ class ApiException(
     override val message: String,
     val code: String? = null,
     val uncertain: Boolean = false,
+    val details: ErrorDetails? = null,
 ) : Exception(message)
 
 /** No way to the node worked. */
@@ -394,6 +395,7 @@ class Transport(
             errorMessage(status, parsed?.error),
             code = parsed?.code?.takeIf { it.isNotBlank() },
             uncertain = parsed?.uncertain == true,
+            details = parsed?.details,
         )
     }
 

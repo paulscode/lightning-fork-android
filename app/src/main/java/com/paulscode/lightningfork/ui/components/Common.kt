@@ -271,13 +271,15 @@ fun InfoRow(label: String, value: String, valueColor: Color = TextPrimary, empha
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top,
     ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = TextMuted)
+        // Both wrap rather than squeeze each other out at large font sizes.
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = TextMuted, modifier = Modifier.weight(1f, fill = false))
         Spacer(Modifier.width(16.dp))
         Text(
             value,
             style = if (emphasize) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
             color = valueColor,
             textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            modifier = Modifier.weight(1f, fill = false),
         )
     }
 }

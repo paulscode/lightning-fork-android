@@ -39,7 +39,9 @@ class NodeApi(private val transport: Transport) {
 
     /**
      * Says which kinds beyond the first ones this app can show: without it,
-     * the node refuses a Bitcoin invoice rather than describe one.
+     * the node refuses a SHA256 invoice rather than describe one. A SHA256
+     * invoice's price is asked of the service, over Tor when it is an
+     * onion, with the market rate beside it: give it a minute.
      */
     suspend fun decode(input: String): PaymentTarget =
         postJson(
@@ -47,8 +49,13 @@ class NodeApi(private val transport: Transport) {
             DecodeRequest.serializer(),
             DecodeRequest(input),
             PaymentTarget.serializer(),
+            timeout = 60,
             headers = mapOf(CAPABILITIES_HEADER to CAPABILITIES),
         )
+
+    /** The service for SHA256 invoices and its terms now; asks the service, so it can take a while. */
+    suspend fun bitcoinInvoices(): BitcoinInvoicesStatus =
+        getJson("/api/v1/bitcoin-invoices", BitcoinInvoicesStatus.serializer(), timeout = 60)
 
     suspend fun estimateOnchain(req: OnchainEstimateRequest): OnchainEstimate =
         postJson("/api/v1/onchain/estimate", OnchainEstimateRequest.serializer(), req, OnchainEstimate.serializer())
@@ -61,11 +68,13 @@ class NodeApi(private val transport: Transport) {
         postJson("/api/v1/lightning/pay", PayRequest.serializer(), req, PayResponse.serializer(), timeout = 120)
 
     /**
-     * The service holds the payment until it has paid the Bitcoin invoice;
-     * the node answers "on its way" after a minute and a half.
+     * The service holds the payment until it has paid the SHA256 invoice;
+     * the node answers "on its way" after a minute and a half, having first
+     * asked for the market rate and the service's request (up to about 75
+     * seconds more).
      */
     suspend fun payBitcoinInvoice(req: BitcoinInvoicePayRequest): PayResponse =
-        postJson("/api/v1/pay/bitcoin-invoice", BitcoinInvoicePayRequest.serializer(), req, PayResponse.serializer(), timeout = 150)
+        postJson("/api/v1/pay/bitcoin-invoice", BitcoinInvoicePayRequest.serializer(), req, PayResponse.serializer(), timeout = 200)
 
     suspend fun address(fresh: Boolean = false): AddressResponse =
         postJson("/api/v1/receive/address", AddressRequest.serializer(), AddressRequest(fresh), AddressResponse.serializer())

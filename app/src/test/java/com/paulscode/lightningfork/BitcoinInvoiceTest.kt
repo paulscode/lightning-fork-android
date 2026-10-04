@@ -128,7 +128,10 @@ class BitcoinInvoiceTest {
         assertNull(p.pay)
         assertNull(p.onchain)
         assertTrue(p.lightning)
-        assertEquals(31_074L, p.amountSat)
+        // Kept on the phone, and shown on Home: the most it can cost, as the
+        // review showed it (the service's ceiling and the routing to it).
+        assertEquals(31_074L + 310L, p.amountSat)
+        assertEquals(SendUi(target = payable).amountSat, p.amountSat)
         assertEquals(150L, p.bitcoinAmountSat)
     }
 
@@ -190,7 +193,7 @@ class BitcoinInvoiceTest {
     private val activity = ApiJson.decodeFromString(
         ActivityResponse.serializer(),
         """{"items":[
-            {"id":"pay:9f","kind":"lightning","direction":"out","amountSat":30950,"feeSat":12,"timestamp":1790912800,"status":"complete","description":"A sticker","reference":"9f","bitcoinInvoice":{"amountSat":150,"description":"A sticker","state":"paid"},"preimage":"ab12"},
+            {"id":"pay:9f","kind":"lightning","direction":"out","amountSat":30950,"feeSat":12,"timestamp":1790912800,"status":"complete","description":"A sticker","reference":"9f","bitcoinInvoice":{"amountSat":150,"description":"A sticker","serviceLabel":"Alice's bridge","state":"paid"},"preimage":"ab12"},
             {"id":"pay:8e","kind":"lightning","direction":"out","amountSat":30950,"feeSat":0,"timestamp":1790912700,"status":"pending","description":"","reference":"8e","bitcoinInvoice":{"amountSat":150,"description":"","state":"pending"}},
             {"id":"pay:7d","kind":"lightning","direction":"out","amountSat":30950,"feeSat":0,"timestamp":1790912600,"status":"failed","description":"","reference":"7d","bitcoinInvoice":{"amountSat":150,"description":"","state":"returned"}},
             {"id":"pay:6c","kind":"lightning","direction":"out","amountSat":2500,"feeSat":1,"timestamp":1790912500,"status":"pending","description":"Coffee","reference":"6c"}
@@ -199,7 +202,14 @@ class BitcoinInvoiceTest {
 
     @Test fun activity_shows_bitcoin_invoices_as_such() {
         val (paid, pending, returned, plain) = activity.items
-        assertEquals("SHA256 invoice", ActivityLabels.title(paid))
+        // Titled by what it was for, and said to be a SHA256 invoice below.
+        assertEquals("A sticker", ActivityLabels.title(paid))
+        assertEquals("SHA256 invoice via Alice's bridge", ActivityLabels.subtitle(paid))
+        assertEquals("SHA256 invoice", ActivityLabels.title(pending))
+        assertEquals("SHA256 invoice", ActivityLabels.subtitle(pending))
+        assertNull(ActivityLabels.subtitle(plain))
+        assertTrue(ActivityLabels.anyOnItsWay(activity.items))
+        assertFalse(ActivityLabels.anyOnItsWay(listOf(paid, returned, plain)))
         assertTrue(ActivityLabels.isBitcoinInvoice(paid))
         assertEquals(150L, paid.bitcoinInvoice!!.amountSat)
         assertEquals(30_950L, paid.amountSat)
@@ -210,7 +220,8 @@ class BitcoinInvoiceTest {
         assertEquals("On its way" to StatusTone.Waiting, ActivityLabels.status(pending))
         assertNull(pending.preimage)
 
-        assertEquals("Returned" to StatusTone.Failed, ActivityLabels.status(returned))
+        // Came back: nothing was lost, so not shown as a failure.
+        assertEquals("Returned" to StatusTone.Returned, ActivityLabels.status(returned))
         assertTrue(ActivityLabels.didNotMove(returned))
 
         assertFalse(ActivityLabels.isBitcoinInvoice(plain))
@@ -224,5 +235,81 @@ class BitcoinInvoiceTest {
         assertEquals("6.38%", Format.percent(0.0638))
         assertEquals("0.48%", Format.percent(0.0048))
         assertEquals("5%", Format.percent(0.05))
+    }
+
+    // What the 0.2.1 review found.
+
+    @Test fun amounts_are_named_for_their_chain_where_both_are_shown() {
+        val sats = com.paulscode.lightningfork.data.AmountUnit.Sats
+        val btc = com.paulscode.lightningfork.data.AmountUnit.Btc
+        assertEquals("31,384 sats (BTCB2)", Format.amountWithUnit(31_384, sats, com.paulscode.lightningfork.util.Coin.Btcb2))
+        assertEquals("150 sats (SHA256)", Format.amountWithUnit(150, sats, com.paulscode.lightningfork.util.Coin.Sha256))
+        assertEquals("1 sat (SHA256)", Format.amountWithUnit(1, sats, com.paulscode.lightningfork.util.Coin.Sha256))
+        assertEquals("0.00031384 BTCB2", Format.amountWithUnit(31_384, btc, com.paulscode.lightningfork.util.Coin.Btcb2))
+        assertEquals("0.00000150 BTC (SHA256)", Format.amountWithUnit(150, btc, com.paulscode.lightningfork.util.Coin.Sha256))
+        // Elsewhere, as before.
+        assertEquals("150 sats", Format.amountWithUnit(150, sats))
+        assertEquals("204.08", Format.inverseRate(0.0049))
+        assertEquals("about 30 hours", Format.hoursRoughly(30))
+        assertEquals("about 3 days", Format.hoursRoughly(56))
+        assertEquals("about 7 days", Format.hoursRoughly(168))
+    }
+
+    @Test fun a_reason_on_the_button_by_its_code() {
+        assertEquals("Set up a service first", SendRules.blockerLabel("no_service"))
+        assertEquals("No amount to pay", SendRules.blockerLabel("no_amount"))
+        assertEquals("Price above what you allow", SendRules.blockerLabel("rate"))
+        assertEquals("The service isn't paying now", SendRules.blockerLabel("disabled"))
+        assertEquals("Can't pay this now", SendRules.blockerLabel(null))
+        val noService = ApiJson.decodeFromString(
+            PaymentTarget.serializer(),
+            """{"kind":"bitcoin-invoice","request":"lnbc1","amountSat":150,"amountEditable":false,"payable":false,"message":"Add a service.","messageCode":"no_service","estimate":null}""",
+        )
+        assertEquals("Set up a service first", SendUi(target = noService).bitcoinInvoiceBlocker)
+        // From a dashboard too old to give a code: as before.
+        assertEquals("Can't pay this now", SendUi(target = notSetUp).bitcoinInvoiceBlocker)
+    }
+
+    @Test fun trying_again_is_offered_only_where_it_can_help() {
+        for (code in listOf("returned", "not_paid", "in_progress", "hold_expiring", "unreachable", "too_large", "rate")) {
+            assertTrue(code, SendRules.retryable(code))
+        }
+        for (code in listOf("already_paid", "needs_operator", "invalid_hold_invoice", "hold_too_long", "no_service", "tor_required", "cert_mismatch", "not_authorized")) {
+            assertFalse(code, SendRules.retryable(code))
+        }
+        assertNotNull(SendRules.dashboardHint("no_service"))
+        assertNotNull(SendRules.dashboardHint("rate"))
+        assertNull(SendRules.dashboardHint("returned"))
+    }
+
+    @Test fun a_refusal_brings_its_details() {
+        val body = ApiJson.decodeFromString(
+            ErrorBody.serializer(),
+            """{"error":"held","code":"on_its_way","uncertain":true,"details":{"maxHoldHours":56}}""",
+        )
+        assertEquals(56L, body.details!!.maxHoldHours)
+        val paid = ApiJson.decodeFromString(
+            ErrorBody.serializer(),
+            """{"error":"paid","code":"already_paid","details":{"preimage":"ab12"},"something":"new"}""",
+        )
+        assertEquals("ab12", paid.details!!.preimage)
+        val wait = ApiJson.decodeFromString(ErrorBody.serializer(), """{"error":"wait","code":"in_progress","details":{"retryAfterSeconds":7}}""")
+        assertEquals(7L, wait.details!!.retryAfterSeconds)
+        assertNull(ApiJson.decodeFromString(ErrorBody.serializer(), """{"error":"x"}""").details)
+    }
+
+    @Test fun bootstrap_says_whether_sha256_invoices_can_be_paid() {
+        val now = ApiJson.decodeFromString(
+            com.paulscode.lightningfork.net.BootstrapResponse.serializer(),
+            """{"serverId":"s","apiVersion":1,"node":{"alias":"lf"},"features":["bitcoin-invoice"],"bitcoinInvoices":{"configured":true,"label":"Alice's bridge","onion":true,"premium":0.05}}""",
+        )
+        assertTrue(now.paysSha256Invoices)
+        assertEquals("Alice's bridge", now.bitcoinInvoices!!.label)
+        val old = ApiJson.decodeFromString(
+            com.paulscode.lightningfork.net.BootstrapResponse.serializer(),
+            """{"serverId":"s","apiVersion":1,"node":{"alias":"lf"}}""",
+        )
+        assertFalse(old.paysSha256Invoices)
+        assertNull(old.bitcoinInvoices)
     }
 }

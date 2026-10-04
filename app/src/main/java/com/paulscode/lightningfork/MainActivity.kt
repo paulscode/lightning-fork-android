@@ -191,13 +191,25 @@ class MainActivity : FragmentActivity() {
             }
             return
         }
-        if ((scheme == "bitcoin" || scheme == "lightning") && container.isPaired) {
+        if (scheme == "bitcoin" || scheme == "lightning") {
+            if (!container.isPaired) {
+                android.widget.Toast.makeText(this, "Pair this phone with your node first, then open the link again.", android.widget.Toast.LENGTH_LONG).show()
+                return
+            }
             // Never over a send that is open: its outcome must stay on screen.
             if (nav.stack.any { it.dest is Dest.Send }) {
                 android.widget.Toast.makeText(this, "Finish or close the payment that is open first.", android.widget.Toast.LENGTH_LONG).show()
                 return
             }
             nav.home()
+            // Only one payment is kept on the phone until its outcome is
+            // known: an unfinished one is settled first, as Send does,
+            // rather than forgotten for the new one.
+            if (container.settings.pendingSend != null) {
+                android.widget.Toast.makeText(this, "Checking your last payment first. Open the link again after.", android.widget.Toast.LENGTH_LONG).show()
+                nav.push(Dest.Send(resume = true))
+                return
+            }
             nav.push(Dest.Send(prefill = data.toString()))
         }
     }
@@ -243,10 +255,9 @@ class MainActivity : FragmentActivity() {
             CompositionLocalProvider(LocalViewModelStoreOwner provides entry) {
                 when (val dest = entry.dest) {
                     Dest.Home -> HomeScreen(
-                        pendingSend = container.settings.pendingSend?.takeIf {
-                            // The node keeps a request's outcome for a day.
-                            System.currentTimeMillis() - it.startedAtMs < 24 * 3600_000L
-                        },
+                        // Shown for as long as it is kept: Send opens it too, and a
+                        // card that vanished would leave that unexplained.
+                        pendingSend = container.settings.pendingSend,
                         onCheckPending = { nav.push(Dest.Send(resume = true)) },
                         state = wallet,
                         unit = unit,

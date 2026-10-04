@@ -2,8 +2,8 @@ package com.paulscode.lightningfork.ui.activity
 
 import com.paulscode.lightningfork.net.ActivityItem
 
-/** How a status reads: a payment on its way, or one that did not go through. */
-enum class StatusTone { Waiting, Failed }
+/** How a status reads: on its way, did not go through, or came back (nothing lost). */
+enum class StatusTone { Waiting, Failed, Returned }
 
 /** What an activity item says in the list, apart from the screen. */
 object ActivityLabels {
@@ -11,8 +11,10 @@ object ActivityLabels {
 
     fun title(item: ActivityItem): String {
         val incoming = item.direction == "in"
-        // A Bitcoin invoice reads as one; what it was for is in its details.
-        if (item.bitcoinInvoice != null) return "SHA256 invoice"
+        // A SHA256 invoice reads as what it was for, when it says.
+        item.bitcoinInvoice?.let { inv ->
+            return inv.description.ifBlank { item.description }.ifBlank { "SHA256 invoice" }
+        }
         return item.description.ifBlank {
             when {
                 incoming && item.kind == "onchain" -> "Received on-chain"
@@ -28,7 +30,7 @@ object ActivityLabels {
         item.bitcoinInvoice?.let {
             return when (it.state) {
                 "pending" -> "On its way" to StatusTone.Waiting
-                "returned" -> "Returned" to StatusTone.Failed
+                "returned" -> "Returned" to StatusTone.Returned
                 else -> null
             }
         }
@@ -38,6 +40,15 @@ object ActivityLabels {
             else -> null
         }
     }
+
+    /** The line under a SHA256 invoice's title: what it is, and through whom. */
+    fun subtitle(item: ActivityItem): String? {
+        val inv = item.bitcoinInvoice ?: return null
+        return if (inv.serviceLabel.isNotBlank()) "SHA256 invoice via ${inv.serviceLabel}" else "SHA256 invoice"
+    }
+
+    /** Whether the list should look again on its own: a SHA256 invoice still on its way. */
+    fun anyOnItsWay(items: List<ActivityItem>): Boolean = items.any { it.bitcoinInvoice?.state == "pending" }
 
     /** Nothing left this node: a failed payment, or a returned one. */
     fun didNotMove(item: ActivityItem): Boolean =

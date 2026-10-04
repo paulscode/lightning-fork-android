@@ -28,8 +28,9 @@ object SendRules {
                 feeSat = s.estimate?.feeSat ?: 0,
                 startedAtMs = nowMs,
             )
-            // The ceiling the user was shown is the one the node holds the
-            // payment to.
+            // The node holds the payment to the service's ceiling; kept on
+            // the phone is the most it can cost, as the review showed it
+            // (that ceiling and the routing to the service).
             t.isBitcoinInvoice -> {
                 val est = t.estimate ?: return null
                 PendingSend(
@@ -38,7 +39,7 @@ object SendRules {
                         maxIncomingSat = est.maxIncomingSat,
                         requestId = requestId,
                     ),
-                    amountSat = est.maxIncomingSat,
+                    amountSat = est.maxIncomingSat + est.routingFeeLimitSat,
                     bitcoinAmountSat = t.amountSat,
                     startedAtMs = nowMs,
                 )
@@ -95,8 +96,47 @@ object SendRules {
     fun definiteOnRecheck(status: Int) =
         status in 400..499 && status !in setOf(401, 403, 408, 422, 425, 429)
 
+    /**
+     * Whether trying again can help after the refusal [code] paying a SHA256
+     * invoice: not when it is paid already, the service is not behaving, or
+     * something must change in the dashboard first.
+     */
+    fun retryable(code: String?): Boolean = code !in NOT_RETRYABLE
+
+    /** A sentence on where to fix what [code] says, or null. */
+    fun dashboardHint(code: String?): String? =
+        if (code in FIXED_IN_DASHBOARD) "This is set in the dashboard, under Paying SHA256 invoices." else null
+
+    /**
+     * The button's word when the node says a SHA256 invoice can't be paid
+     * now, by its reason's [code]; the sentence itself is on the screen.
+     */
+    fun blockerLabel(code: String?): String = when (code) {
+        "no_service" -> "Set up a service first"
+        "no_amount" -> "No amount to pay"
+        "expired" -> "This request has expired"
+        "too_small" -> "Too small for the service"
+        "too_large" -> "Too large for the service"
+        "rate" -> "Price above what you allow"
+        "reference_unavailable" -> "No market rate right now"
+        "unreachable", "unavailable", "internal", "invalid_response", "tor_required", "cert_mismatch", "not_authorized" ->
+            "The service can't be used now"
+        null -> "Can't pay this now"
+        else -> "The service isn't paying now"
+    }
+
+    private val NOT_RETRYABLE = setOf(
+        "already_paid", "needs_operator", "invalid_hold_invoice", "hold_too_long",
+        "no_service", "no_amount", "not_bitcoin_invoice", "tor_required", "cert_mismatch",
+        "not_authorized", "wrong_node", "unsupported_version",
+    )
+    private val FIXED_IN_DASHBOARD = setOf("no_service", "tor_required", "cert_mismatch", "not_authorized", "rate", "wrong_node", "unsupported_version")
+
     /** The service asks more than the user agreed to: show the new price. */
     const val PRICE_CHANGED = "price_changed"
+
+    /** The service paid the SHA256 invoice and did not collect: the operator's to resolve. */
+    const val NEEDS_OPERATOR = "needs_operator"
 
     /** The node knows the payment is under way, not merely unsure. */
     const val ON_ITS_WAY = "on_its_way"

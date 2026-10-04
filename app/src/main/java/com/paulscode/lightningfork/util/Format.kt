@@ -7,6 +7,9 @@ import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
 
+/** Which chain an amount is on, where both are shown. */
+enum class Coin { Btcb2, Sha256 }
+
 object Format {
     private val symbols = DecimalFormatSymbols(Locale.US)
     private val group = DecimalFormat("#,##0", symbols)
@@ -22,13 +25,41 @@ object Format {
         AmountUnit.Btc -> btc(sats)
     }
 
-    fun unitLabel(unit: AmountUnit, sats: Long = 2): String = when (unit) {
-        AmountUnit.Sats -> if (sats == 1L) "sat" else "sats"
-        AmountUnit.Btc -> "BTC"
+    /**
+     * The unit's name. With [coin], named for its chain, where amounts of
+     * both are on one screen (paying a SHA256 invoice): "sats (BTCB2)" or
+     * "BTCB2", "sats (SHA256)" or "BTC (SHA256)".
+     */
+    fun unitLabel(unit: AmountUnit, sats: Long = 2, coin: Coin? = null): String {
+        val plain = if (sats == 1L) "sat" else "sats"
+        return when (coin) {
+            null -> if (unit == AmountUnit.Sats) plain else "BTC"
+            Coin.Btcb2 -> if (unit == AmountUnit.Sats) "$plain (BTCB2)" else "BTCB2"
+            Coin.Sha256 -> if (unit == AmountUnit.Sats) "$plain (SHA256)" else "BTC (SHA256)"
+        }
     }
 
-    /** "1,234 sats" or "0.00001234 BTC". */
-    fun amountWithUnit(sats: Long, unit: AmountUnit): String = "${amount(sats, unit)} ${unitLabel(unit, sats)}"
+    /** "1,234 sats" or "0.00001234 BTC"; with [coin], named for its chain. */
+    fun amountWithUnit(sats: Long, unit: AmountUnit, coin: Coin? = null): String =
+        "${amount(sats, unit)} ${unitLabel(unit, sats, coin)}"
+
+    /**
+     * BTCB2 for one BTC (SHA256), from a rate in BTC (SHA256) per BTCB2:
+     * "204.08". Easier to read than the rate itself.
+     */
+    fun inverseRate(rate: Double): String =
+        if (rate <= 0) "—" else BigDecimal(1 / rate).setScale(2, RoundingMode.HALF_UP).toPlainString()
+
+    /** A SHA256 amount in USD, from [rate] (BTC (SHA256) per BTCB2) and the BTCB2 price. */
+    fun sha256Fiat(sha256Sats: Long, rate: Double, usdPerBtcb2: Double?): String? =
+        if (rate <= 0) null else fiat(kotlin.math.ceil(sha256Sats / rate).toLong(), usdPerBtcb2)
+
+    /** A longest time, roughly and never under it: "about 30 hours", "about 3 days" (for 56 h). */
+    fun hoursRoughly(hours: Long): String = when {
+        hours <= 1 -> "about an hour"
+        hours < 48 -> "about $hours hours"
+        else -> "about ${(hours + 23) / 24} days"
+    }
 
     fun fiat(sats: Long, usdPerBtc: Double?): String? {
         if (usdPerBtc == null || usdPerBtc <= 0) return null

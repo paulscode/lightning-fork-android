@@ -59,6 +59,50 @@ data class BootstrapResponse(
     val deviceId: String = "",
     val label: String = "",
     val node: NodeInfo,
+    /**
+     * What the dashboard can do beyond the first calls; null from one too
+     * old to say (which also can't pay SHA256 invoices).
+     */
+    val features: List<String>? = null,
+    val bitcoinInvoices: BitcoinInvoicesSummary? = null,
+) {
+    val paysSha256Invoices: Boolean get() = features?.contains(FEATURE_SHA256_INVOICES) == true
+
+    companion object {
+        const val FEATURE_SHA256_INVOICES = "bitcoin-invoice"
+    }
+}
+
+/** Whether a service for SHA256 invoices is set up, its name and the premium allowed. */
+@Serializable
+data class BitcoinInvoicesSummary(
+    val configured: Boolean = false,
+    val label: String = "",
+    val onion: Boolean = false,
+    val premium: Double = 0.0,
+)
+
+/** The service's terms now, as /bitcoin-invoices gives them. */
+@Serializable
+data class BitcoinInvoiceTerms(
+    val open: Boolean = false,
+    val refusal: String? = null,
+    val rate: Double = 0.0,
+    val spread: Double = 0.0,
+    val minSat: Long = 0,
+    val maxSat: Long = 0,
+)
+
+@Serializable
+data class BitcoinInvoicesStatus(
+    val configured: Boolean = false,
+    val label: String = "",
+    val onion: Boolean = false,
+    val premium: Double = 0.0,
+    val terms: BitcoinInvoiceTerms? = null,
+    val error: String? = null,
+    val reference: BitcoinInvoiceReference? = null,
+    val referenceError: String? = null,
 )
 
 @Serializable
@@ -129,6 +173,8 @@ data class BitcoinInvoiceEstimate(
     val serviceLabel: String = "",
     val open: Boolean = true,
     val refusal: String? = null,
+    /** The service's own code for [refusal]. */
+    val refusalCode: String? = null,
 )
 
 /**
@@ -165,6 +211,8 @@ data class PaymentTarget(
     val expired: Boolean = false,
     val ours: Boolean = false,
     val message: String? = null,
+    /** Names the reason in [message]: no_service, no_amount, rate, bridge_code, ... */
+    val messageCode: String? = null,
     /** The on-chain way to pay a unified BIP 21 request. */
     val fallback: PaymentTarget? = null,
     /** A Bitcoin invoice: false whenever [message] says why it can't be paid now. */
@@ -317,11 +365,12 @@ data class ActivityItem(
     val preimage: String? = null,
 )
 
-/** [amountSat] in Bitcoin; [state] is paid, pending or returned. */
+/** [amountSat] on the SHA256 chain; [state] is paid, pending or returned. */
 @Serializable
 data class ActivityBitcoinInvoice(
     val amountSat: Long = 0,
     val description: String = "",
+    val serviceLabel: String = "",
     val state: String = "",
 )
 
@@ -333,7 +382,26 @@ data class PriceResponse(val currency: String = "USD", val price: Double? = null
 
 /** [code]: a refusal's stable name; [uncertain]: the money may have moved. */
 @Serializable
-data class ErrorBody(val error: String = "", val code: String? = null, val uncertain: Boolean = false)
+data class ErrorBody(
+    val error: String = "",
+    val code: String? = null,
+    val uncertain: Boolean = false,
+    val details: ErrorDetails? = null,
+)
+
+/**
+ * What a refusal carries beside its code: the proof of a payment made
+ * already, how long a held payment can stay held, how long to wait before
+ * trying again, a price that rose and the ceiling agreed.
+ */
+@Serializable
+data class ErrorDetails(
+    val preimage: String? = null,
+    val maxHoldHours: Long? = null,
+    val retryAfterSeconds: Long? = null,
+    val incomingSat: Long? = null,
+    val maxIncomingSat: Long? = null,
+)
 
 /**
  * A send as it went to the node, kept on the phone until its outcome is known,
@@ -345,7 +413,10 @@ data class PendingSend(
     val onchain: OnchainSendRequest? = null,
     val pay: PayRequest? = null,
     val bitcoinInvoice: BitcoinInvoicePayRequest? = null,
-    /** At most what it costs here; for a Bitcoin invoice, its ceiling. */
+    /**
+     * At most what it costs here; for a SHA256 invoice, the ceiling shown
+     * with the review (the service's, and the routing to it).
+     */
     val amountSat: Long,
     val feeSat: Long = 0,
     val startedAtMs: Long = 0,

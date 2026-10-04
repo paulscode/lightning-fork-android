@@ -324,7 +324,7 @@ private fun OnchainTab(ui: ReceiveUi, vm: ReceiveViewModel, wallet: WalletState)
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            "Bitcoin sent here takes a block or more to confirm. For instant payments, use Lightning.",
+            "BTCB2 sent here takes a block or more to confirm. For instant payments, use Lightning.",
             style = MaterialTheme.typography.bodySmall,
             color = TextFaint,
             textAlign = TextAlign.Center,

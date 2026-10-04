@@ -51,6 +51,7 @@ import com.paulscode.lightningfork.ui.theme.TextPrimary
 import com.paulscode.lightningfork.ui.theme.Warning
 import com.paulscode.lightningfork.util.Format
 import com.paulscode.lightningfork.wallet.WalletState
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -80,7 +81,7 @@ fun SettingsScreen(
                 val node = wallet.node
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(node?.alias?.ifBlank { null } ?: "Lightning Fork node", style = MaterialTheme.typography.titleMedium, color = TextPrimary, modifier = Modifier.weight(1f))
-                    Pill(if (node?.network == "mainnet" || node == null) "Bitcoin BLAKE2b chain" else node.network)
+                    Pill(if (node?.network == "mainnet" || node == null) "BLAKE2b chain" else node.network)
                 }
                 Spacer(Modifier.height(8.dp))
                 if (node != null) {
@@ -89,13 +90,10 @@ fun SettingsScreen(
                     InfoRow("Channels", node.activeChannels.toString())
                     InfoRow("Version", node.version.substringBefore(" "))
                 }
-                Text(
-                    "Paying SHA256 invoices is set up in the dashboard's settings.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextMuted,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
             }
+
+            Section("Paying SHA256 invoices")
+            Sha256InvoicesCard(container, wallet)
 
             Section("Connection")
             AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
@@ -242,5 +240,85 @@ private fun ToggleRow(title: String, subtitle: String, checked: Boolean, enabled
             enabled = enabled,
             colors = SwitchDefaults.colors(checkedTrackColor = Accent),
         )
+    }
+}
+
+/**
+ * Whether this node can pay SHA256 invoices, through which service, at what
+ * premium; and, asked for, the service's terms now. Set up only in the
+ * dashboard: a service code carries a credential.
+ */
+@Composable
+private fun Sha256InvoicesCard(container: AppContainer, wallet: WalletState) {
+    val dashboard = wallet.dashboard
+    var explain by remember { mutableStateOf(false) }
+    var status by remember { mutableStateOf<com.paulscode.lightningfork.net.BitcoinInvoicesStatus?>(null) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    if (explain) com.paulscode.lightningfork.ui.send.Sha256Explainer(onDismiss = { explain = false })
+    AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
+        val summary = dashboard?.bitcoinInvoices
+        when {
+            dashboard == null -> Text("Asking your node…", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            !dashboard.paysSha256Invoices -> Text(
+                "Your dashboard is too old to pay SHA256 invoices. Update Lightning Fork on your node to use them.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Warning,
+            )
+            summary == null || !summary.configured -> Text(
+                "Not set up. To pay SHA256 invoices from this phone, add a service in the dashboard, under Paying SHA256 invoices, with the code its operator gives you.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted,
+            )
+            else -> {
+                InfoRow("Service", summary.label.ifBlank { "Set up" })
+                InfoRow("Allowed above the market", Format.percent(summary.premium))
+                if (summary.onion) InfoRow("Reached", "Over Tor")
+                val st = status
+                if (st != null) {
+                    val terms = st.terms
+                    when {
+                        st.error != null -> InfoRow("Right now", "Not answering", valueColor = Warning)
+                        terms == null -> InfoRow("Right now", "Doesn't pay SHA256 invoices", valueColor = Warning)
+                        !terms.open -> InfoRow("Right now", terms.refusal ?: "Not paying", valueColor = Warning)
+                        else -> {
+                            InfoRow("Right now", "Paying", valueColor = Success)
+                            if (terms.rate > 0) InfoRow("Rate", "1 BTC (SHA256) ≈ ${Format.inverseRate(terms.rate)} BTCB2")
+                            InfoRow("Fee", Format.percent(terms.spread))
+                            if (terms.maxSat > 0) InfoRow("Pays", "${Format.sats(terms.minSat)} to ${Format.sats(terms.maxSat)} sats (SHA256)")
+                        }
+                    }
+                    st.reference?.let { ref ->
+                        if (ref.rate > 0) InfoRow("Market", "1 BTC (SHA256) ≈ ${Format.inverseRate(ref.rate)} BTCB2${if (ref.source.isNotBlank()) ", ${ref.source}" else ""}")
+                    }
+                }
+                error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Warning) }
+                com.paulscode.lightningfork.ui.components.QuietButton(
+                    if (loading) "Asking the service…" else if (status == null) "Check its terms now" else "Check again",
+                    onClick = {
+                        if (loading) return@QuietButton
+                        loading = true
+                        error = null
+                        scope.launch {
+                            try {
+                                status = container.api.bitcoinInvoices()
+                            } catch (e: com.paulscode.lightningfork.net.ApiException) {
+                                error = e.message
+                            } catch (e: Exception) {
+                                error = "Can't reach your node right now."
+                            }
+                            loading = false
+                        }
+                    },
+                )
+                Text(
+                    "Changed only in the dashboard, under Paying SHA256 invoices.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextFaint,
+                )
+            }
+        }
+        com.paulscode.lightningfork.ui.components.QuietButton("How paying a SHA256 invoice works", onClick = { explain = true })
     }
 }

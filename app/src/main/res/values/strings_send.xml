@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Sending: the input, review, sending, done and failed steps. "BTC",
+    "BTCB2", "SHA256", "BLAKE2b", "Lightning", "Lightning Fork" and "sat/vB"
+    are names, not words to translate. The SHA256 chain is never called
+    "Bitcoin".
+-->
+<resources>
+    <!-- Scanning -->
+    <string name="send_scan_title">Scan to pay</string>
+    <string name="send_scan_hint">Point at a payment QR code</string>
+
+    <!-- Input -->
+    <string name="send_title">Send</string>
+    <string name="send_input_heading">Who are you paying?</string>
+    <string name="send_input_subtitle">A BTCB2 address, a Lightning invoice or offer, or a SHA256 invoice.</string>
+    <string name="send_scan">Scan</string>
+    <string name="send_scan_subtitle">Use the camera</string>
+    <string name="send_paste">Paste</string>
+    <string name="send_paste_subtitle">From the clipboard</string>
+    <string name="send_input_label">Or type it</string>
+    <!-- How the things it reads begin: not words. -->
+    <string name="send_input_placeholder" translatable="false">bc1… · lnbc… · lno1…</string>
+    <string name="send_continue">Continue</string>
+
+    <!-- What was read, by its kind -->
+    <string name="send_kind_onchain">On-chain address</string>
+    <string name="send_kind_bolt11">Lightning invoice</string>
+    <string name="send_kind_offer">Lightning offer</string>
+    <string name="send_kind_bolt12_invoice">Lightning invoice (offer)</string>
+    <string name="send_kind_payment">Payment</string>
+
+    <!-- Review -->
+    <string name="send_review_title">Review</string>
+    <string name="send_option_lightning" translatable="false">Lightning</string>
+    <string name="send_option_onchain">On-chain</string>
+    <string name="send_sha256_cant_pay_now">This SHA256 invoice can\'t be paid right now.</string>
+    <string name="send_amount">Amount</string>
+    <string name="send_working_it_out">Working it out…</string>
+    <string name="send_everything">Send everything</string>
+    <string name="send_everything_subtitle">All confirmed on-chain funds, less the fee</string>
+    <string name="send_payer_note_label">Note to the recipient (optional)</string>
+    <string name="send_payer_note_placeholder">Thanks!</string>
+    <string name="send_network_fee">Network fee</string>
+    <string name="send_total">Total</string>
+    <!-- %1$s: an amount with its unit. -->
+    <string name="send_onchain_balance">On-chain balance: %1$s</string>
+    <string name="send_onchain_chain_warning">Sends BTCB2 on the BLAKE2b chain. Not for someone expecting BTC (SHA256).</string>
+    <string name="send_routing_fee">Routing fee</string>
+    <string name="send_routing_fee_usual">Usually a few sats</string>
+    <!-- %1$s: an amount with its unit. -->
+    <string name="send_lightning_balance">Lightning balance: %1$s</string>
+    <string name="send_try_again">Try again</string>
+    <!-- The send button. %1$s: an amount with its unit. -->
+    <string name="send_pay_at_most">Pay at most %1$s</string>
+    <string name="send_send_amount">Send %1$s</string>
+    <string name="send_send">Send</string>
+
+    <!-- The recipient -->
+    <string name="send_sha256_explain_label">What paying a SHA256 invoice means</string>
+    <string name="send_sha256_pill">SHA256 invoice ⓘ</string>
+    <!-- %1$s: the request's own description. -->
+    <string name="send_description_quoted">“%1$s”</string>
+
+    <!-- A SHA256 invoice's review -->
+    <string name="send_at_most">At most</string>
+    <!-- %1$s: an amount with its unit. -->
+    <string name="send_expected">Expected %1$s plus routing, if the price holds until it is paid</string>
+    <!-- %1$s: the service's name. -->
+    <string name="send_paid_through">Paid through %1$s. It is paid only if the SHA256 invoice is paid; otherwise your payment comes back.</string>
+    <string name="send_paid_through_your_service">Paid through your service. It is paid only if the SHA256 invoice is paid; otherwise your payment comes back.</string>
+    <string name="send_how_this_works">How this works</string>
+    <string name="send_amount_sha256">Amount on the SHA256 chain</string>
+    <string name="send_none_given">None given</string>
+    <string name="send_pays_sha256">Pays on the SHA256 chain</string>
+    <!-- %1$s: an amount with its unit; %2$s: about that in a currency. -->
+    <string name="send_amount_with_fiat">%1$s, %2$s</string>
+    <string name="send_service_fee">Service fee</string>
+    <!-- %1$s: an amount with its unit. -->
+    <string name="send_service_fee_included">%1$s, included</string>
+    <string name="send_expanded">Expanded</string>
+    <string name="send_collapsed">Collapsed</string>
+    <string name="send_details">Details</string>
+    <string name="send_rate">Rate</string>
+    <!-- %1$s: a number of BTCB2. -->
+    <string name="send_rate_inverse">1 BTC (SHA256) ≈ %1$s BTCB2</string>
+    <!-- %1$s: a number of BTC (SHA256). -->
+    <string name="send_rate_direct">1 BTCB2 = %1$s BTC (SHA256)</string>
+    <string name="send_against_market">Against the market</string>
+    <!-- %1$s: a percentage. -->
+    <string name="send_premium_above">%1$s above</string>
+    <string name="send_premium_below">%1$s below</string>
+    <string name="send_allowed">Allowed</string>
+    <string name="send_allowed_up_to">Up to %1$s above</string>
+    <string name="send_market_rate_from">Market rate from</string>
+    <string name="send_market_rate">Market rate</string>
+    <string name="send_not_available">Not available</string>
+    <string name="send_service_pays">Service pays</string>
+    <!-- %1$s: the least; %2$s: the most, with its unit. -->
+    <string name="send_service_pays_range">%1$s to %2$s</string>
+    <string name="send_description">Description</string>
+    <!-- %1$s: an amount with its unit. -->
+    <string name="send_includes_routing">Includes up to %1$s for routing to the service.</string>
+
+    <!-- What paying a SHA256 invoice means -->
+    <string name="send_explainer_title">Paying a SHA256 invoice</string>
+    <string name="send_explainer_1">A SHA256 invoice asks to be paid on the SHA256 chain\'s Lightning network. Your node can\'t pay there itself, so a service pays it for you, and you pay the service in BTCB2.</string>
+    <string name="send_explainer_2">You don\'t have to trust the service: your payment to it is locked to the same invoice, so it can only collect by paying the SHA256 invoice. If it doesn\'t, your payment comes back to you.</string>
+    <string name="send_explainer_3">The price is the service\'s rate and fee. Your node checks it against the market rate, and you agree to the most it can cost before anything is paid.</string>
+    <string name="send_explainer_4">It is usually paid within a minute or two. If the service stalls, your payment can stay held until its time runs out, at most about two weeks, and then comes back.</string>
+    <string name="send_explainer_5">The service is the one set up in the dashboard, under Paying SHA256 invoices.</string>
+    <string name="send_explainer_ok">Got it</string>
+
+    <!-- Expiry -->
+    <string name="send_expires">Expires</string>
+    <string name="send_expired">Expired</string>
+    <!-- %1$s: a countdown such as 12:34. -->
+    <string name="send_expires_in">in %1$s</string>
+
+    <!-- Fee choice -->
+    <string name="send_fee_low">Low</string>
+    <string name="send_fee_medium">Medium</string>
+    <string name="send_fee_high">High</string>
+    <!-- %1$s: a fee rate. -->
+    <string name="send_sat_per_vb">%1$s sat/vB</string>
+    <!-- %1$s: where the fee rates come from. -->
+    <string name="send_rates_from">Rates from %1$s</string>
+
+    <!-- Sending -->
+    <string name="send_getting_price">Getting the price…</string>
+    <string name="send_checking">Checking…</string>
+    <string name="send_sending">Sending…</string>
+    <string name="send_sending_repricing">Your node is asking the service what this SHA256 invoice costs now.</string>
+    <string name="send_sending_checking">Your node is looking up this payment. It is never paid twice.</string>
+    <string name="send_sending_sha256">Your node pays the service, which pays the SHA256 invoice. This can take a minute or two.</string>
+    <string name="send_sending_onchain">Your node is signing and broadcasting the transaction.</string>
+    <string name="send_sending_lightning">Your node is finding a route to the recipient.</string>
+    <string name="send_close_carries_on">Close, it carries on</string>
+    <string name="send_close_carries_on_hint">Home shows it until it\'s done, and lets you check it.</string>
+
+    <!-- Done -->
+    <string name="send_sha256_paid">SHA256 invoice paid</string>
+    <string name="send_sent">Sent</string>
+    <string name="send_sent_confirming">Sent · confirming</string>
+    <string name="send_paid_on_sha256">paid on the SHA256 chain</string>
+    <string name="send_cost">Cost</string>
+    <string name="send_proof_of_payment">Proof of payment</string>
+    <string name="send_transaction">Transaction</string>
+    <string name="send_copy">Copy</string>
+    <string name="send_done">Done</string>
+
+    <!-- Failed -->
+    <string name="send_failed_on_its_way">On its way</string>
+    <string name="send_failed_uncertain">Not sure it went through</string>
+    <string name="send_failed_already_paid">Already paid</string>
+    <string name="send_failed">Payment didn\'t go through</string>
+    <!-- %1$s: a time such as "about 3 days". -->
+    <string name="send_on_its_way_within">The service pays the SHA256 invoice first, which can take a while. If it never pays, your payment comes back, within %1$s. Checking never pays it twice.</string>
+    <string name="send_on_its_way">The service pays the SHA256 invoice first, which can take a while. If it never pays, your payment comes back. Checking never pays it twice.</string>
+    <string name="send_uncertain_explained">Check again asks your node about this same payment and never pays it twice. Your activity shows it too once it went through.</string>
+    <string name="send_checking_on_its_own">Checking again on its own</string>
+    <string name="send_check_again">Check again</string>
+    <string name="send_close">Close</string>
+    <string name="send_forget">I checked my activity: forget this payment</string>
+    <!-- %1$s: a number of seconds. -->
+    <plurals name="send_try_again_in_seconds">
+        <item quantity="one">Try again in %1$ss</item>
+        <item quantity="other">Try again in %1$ss</item>
+    </plurals>
+    <string name="send_back">Back</string>
+
+    <!-- What the app says itself about what was typed or read -->
+    <string name="send_cant_pay_from_wallet">This can\'t be paid from this wallet.</string>
+    <string name="send_own_node">That was made by your own node. To move funds between your balances, open or close a channel in the dashboard.</string>
+    <string name="send_request_expired_ask_new">This request has expired. Ask for a new one.</string>
+    <string name="send_cant_reach_node_to_read">Can\'t reach your node to read this. Try again.</string>
+    <string name="send_dashboard_too_old">This looks like a SHA256 invoice. Your dashboard is too old to pay those: update Lightning Fork on your node.</string>
+    <string name="send_cant_get_fee_rates">Can\'t get fee rates from your node.</string>
+    <string name="send_cant_work_out_fee">Couldn\'t work out the fee. Check the connection.</string>
+    <string name="send_payment_failed">The payment failed.</string>
+    <string name="send_lost_touch">Lost touch with your node before it answered. The payment may still go through.</string>
+    <string name="send_cant_reach_node_for_price">Can\'t reach your node to get the new price.</string>
+    <string name="send_key_lost">This phone\'s key can no longer be read. Pair the phone again.</string>
+    <string name="send_key_unavailable">This phone\'s key could not be read. Unlock the phone and try again.</string>
+    <string name="send_hint_dashboard">This is set in the dashboard, under Paying SHA256 invoices.</string>
+
+    <!-- Why the send button can't send yet, on the button itself -->
+    <string name="send_blocker_nothing">Nothing to pay</string>
+    <string name="send_blocker_expired">This request has expired</string>
+    <string name="send_blocker_cant_send_yet">Can\'t send this yet</string>
+    <string name="send_blocker_working_out_fee">Working out the fee…</string>
+    <string name="send_blocker_enter_amount">Enter an amount</string>
+    <string name="send_blocker_waiting_for_rates">Waiting for fee rates</string>
+    <string name="send_blocker_over_onchain">More than your on-chain balance</string>
+    <string name="send_blocker_over_lightning">More than your Lightning balance</string>
+    <string name="send_blocker_no_service">Set up a service first</string>
+    <string name="send_blocker_no_amount">No amount to pay</string>
+    <string name="send_blocker_too_small">Too small for the service</string>
+    <string name="send_blocker_too_large">Too large for the service</string>
+    <string name="send_blocker_rate">Price above what you allow</string>
+    <string name="send_blocker_no_market_rate">No market rate right now</string>
+    <string name="send_blocker_service_unusable">The service can\'t be used now</string>
+    <string name="send_blocker_cant_pay_now">Can\'t pay this now</string>
+    <string name="send_blocker_service_not_paying">The service isn\'t paying now</string>
+</resources>

@@ -1,10 +1,12 @@
 package com.paulscode.lightningfork.ui.send
 
+import com.paulscode.lightningfork.R
 import com.paulscode.lightningfork.net.ApiException
 import com.paulscode.lightningfork.net.BitcoinInvoicePayRequest
 import com.paulscode.lightningfork.net.OnchainSendRequest
 import com.paulscode.lightningfork.net.PayRequest
 import com.paulscode.lightningfork.net.PendingSend
+import com.paulscode.lightningfork.ui.text.UiText
 
 /** What a send goes out as, and how the node's answer is read: the screen's rules, apart from the screen. */
 object SendRules {
@@ -104,26 +106,28 @@ object SendRules {
     fun retryable(code: String?): Boolean = code !in NOT_RETRYABLE
 
     /** A sentence on where to fix what [code] says, or null. */
-    fun dashboardHint(code: String?): String? =
-        if (code in FIXED_IN_DASHBOARD) "This is set in the dashboard, under Paying SHA256 invoices." else null
+    fun dashboardHint(code: String?): UiText? =
+        if (code in FIXED_IN_DASHBOARD) UiText.of(R.string.send_hint_dashboard) else null
 
     /**
      * The button's word when the node says a SHA256 invoice can't be paid
      * now, by its reason's [code]; the sentence itself is on the screen.
      */
-    fun blockerLabel(code: String?): String = when (code) {
-        "no_service" -> "Set up a service first"
-        "no_amount" -> "No amount to pay"
-        "expired" -> "This request has expired"
-        "too_small" -> "Too small for the service"
-        "too_large" -> "Too large for the service"
-        "rate" -> "Price above what you allow"
-        "reference_unavailable" -> "No market rate right now"
-        "unreachable", "unavailable", "internal", "invalid_response", "tor_required", "cert_mismatch", "not_authorized" ->
-            "The service can't be used now"
-        null -> "Can't pay this now"
-        else -> "The service isn't paying now"
-    }
+    fun blockerLabel(code: String?): UiText = UiText.of(
+        when (code) {
+            "no_service" -> R.string.send_blocker_no_service
+            "no_amount" -> R.string.send_blocker_no_amount
+            "expired" -> R.string.send_blocker_expired
+            "too_small" -> R.string.send_blocker_too_small
+            "too_large" -> R.string.send_blocker_too_large
+            "rate" -> R.string.send_blocker_rate
+            "reference_unavailable" -> R.string.send_blocker_no_market_rate
+            "unreachable", "unavailable", "internal", "invalid_response", "tor_required", "cert_mismatch", "not_authorized" ->
+                R.string.send_blocker_service_unusable
+            null -> R.string.send_blocker_cant_pay_now
+            else -> R.string.send_blocker_service_not_paying
+        },
+    )
 
     private val NOT_RETRYABLE = setOf(
         "already_paid", "needs_operator", "invalid_hold_invoice", "hold_too_long",

@@ -12,6 +12,7 @@ import com.paulscode.lightningfork.ui.activity.ActivityLabels
 import com.paulscode.lightningfork.ui.activity.StatusTone
 import com.paulscode.lightningfork.ui.send.SendRules
 import com.paulscode.lightningfork.ui.send.SendUi
+import com.paulscode.lightningfork.ui.text.UiText
 import com.paulscode.lightningfork.util.Format
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -111,7 +112,7 @@ class BitcoinInvoiceTest {
     }
 
     @Test fun not_payable_cant_be_sent() {
-        assertEquals("Can't pay this now", SendUi(target = notSetUp).bitcoinInvoiceBlocker)
+        assertEquals(UiText.of(R.string.send_blocker_cant_pay_now), SendUi(target = notSetUp).bitcoinInvoiceBlocker)
         assertNull(SendUi(target = notSetUp).amountSat)
         // The node's word decides, even with a price.
         assertNotNull(SendUi(target = payable.copy(payable = false, message = "The service is closed.")).bitcoinInvoiceBlocker)
@@ -256,18 +257,18 @@ class BitcoinInvoiceTest {
     }
 
     @Test fun a_reason_on_the_button_by_its_code() {
-        assertEquals("Set up a service first", SendRules.blockerLabel("no_service"))
-        assertEquals("No amount to pay", SendRules.blockerLabel("no_amount"))
-        assertEquals("Price above what you allow", SendRules.blockerLabel("rate"))
-        assertEquals("The service isn't paying now", SendRules.blockerLabel("disabled"))
-        assertEquals("Can't pay this now", SendRules.blockerLabel(null))
+        assertEquals(UiText.of(R.string.send_blocker_no_service), SendRules.blockerLabel("no_service"))
+        assertEquals(UiText.of(R.string.send_blocker_no_amount), SendRules.blockerLabel("no_amount"))
+        assertEquals(UiText.of(R.string.send_blocker_rate), SendRules.blockerLabel("rate"))
+        assertEquals(UiText.of(R.string.send_blocker_service_not_paying), SendRules.blockerLabel("disabled"))
+        assertEquals(UiText.of(R.string.send_blocker_cant_pay_now), SendRules.blockerLabel(null))
         val noService = ApiJson.decodeFromString(
             PaymentTarget.serializer(),
             """{"kind":"bitcoin-invoice","request":"lnbc1","amountSat":150,"amountEditable":false,"payable":false,"message":"Add a service.","messageCode":"no_service","estimate":null}""",
         )
-        assertEquals("Set up a service first", SendUi(target = noService).bitcoinInvoiceBlocker)
+        assertEquals(UiText.of(R.string.send_blocker_no_service), SendUi(target = noService).bitcoinInvoiceBlocker)
         // From a dashboard too old to give a code: as before.
-        assertEquals("Can't pay this now", SendUi(target = notSetUp).bitcoinInvoiceBlocker)
+        assertEquals(UiText.of(R.string.send_blocker_cant_pay_now), SendUi(target = notSetUp).bitcoinInvoiceBlocker)
     }
 
     @Test fun trying_again_is_offered_only_where_it_can_help() {
@@ -277,7 +278,7 @@ class BitcoinInvoiceTest {
         for (code in listOf("already_paid", "needs_operator", "invalid_hold_invoice", "hold_too_long", "no_service", "tor_required", "cert_mismatch", "not_authorized")) {
             assertFalse(code, SendRules.retryable(code))
         }
-        assertNotNull(SendRules.dashboardHint("no_service"))
+        assertEquals(UiText.of(R.string.send_hint_dashboard), SendRules.dashboardHint("no_service"))
         assertNotNull(SendRules.dashboardHint("rate"))
         assertNull(SendRules.dashboardHint("returned"))
     }

@@ -2,6 +2,7 @@ package com.paulscode.lightningfork.ui.send
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.paulscode.lightningfork.R
 import com.paulscode.lightningfork.data.AmountUnit
 import com.paulscode.lightningfork.data.SettingsStore
 import com.paulscode.lightningfork.net.ApiException
@@ -11,6 +12,7 @@ import com.paulscode.lightningfork.net.OnchainEstimate
 import com.paulscode.lightningfork.net.OnchainEstimateRequest
 import com.paulscode.lightningfork.net.PaymentTarget
 import com.paulscode.lightningfork.net.PendingSend
+import com.paulscode.lightningfork.ui.text.UiText
 import com.paulscode.lightningfork.util.Format
 import com.paulscode.lightningfork.wallet.WalletRepository
 import kotlinx.coroutines.CancellationException
@@ -38,7 +40,7 @@ data class SendUi(
     val step: SendStep = SendStep.Input,
     val input: String = "",
     val decoding: Boolean = false,
-    val inputError: String? = null,
+    val inputError: UiText? = null,
     val target: PaymentTarget? = null,
     /** For a request that offers both, whether the user chose on-chain. */
     val payOnchain: Boolean = false,
@@ -47,13 +49,13 @@ data class SendUi(
     val sendAll: Boolean = false,
     val payerNote: String = "",
     val fees: FeesResponse? = null,
-    val feesError: String? = null,
+    val feesError: UiText? = null,
     val feeLevel: FeeLevel = FeeLevel.Medium,
     val estimate: OnchainEstimate? = null,
     val estimating: Boolean = false,
-    val estimateError: String? = null,
+    val estimateError: UiText? = null,
     val result: SendResult? = null,
-    val error: String? = null,
+    val error: UiText? = null,
     /** The failure left it unknown whether the payment went through. */
     val uncertain: Boolean = false,
     /** Uncertain, as a Bitcoin invoice the service is still paying. */
@@ -65,7 +67,7 @@ data class SendUi(
     /** A Bitcoin invoice's price is being read anew. */
     val repricing: Boolean = false,
     /** Why the review is shown again, such as a new price. */
-    val reviewNotice: String? = null,
+    val reviewNotice: UiText? = null,
     /** Asking about a payment sent before, not sending one. */
     val checking: Boolean = false,
     /** Asking again on its own while a SHA256 invoice is on its way. */
@@ -77,7 +79,7 @@ data class SendUi(
     /** When trying again can help, after a wait (epoch ms). */
     val retryAtMs: Long? = null,
     /** Where to fix what stopped the payment. */
-    val hint: String? = null,
+    val hint: UiText? = null,
     /** The service paid the SHA256 invoice and did not collect. */
     val needsOperator: Boolean = false,
     /** Refused as paid already: not a failure. */
@@ -95,7 +97,7 @@ data class SendUi(
      * Why a Bitcoin invoice can't be paid, by the node's own word; null when
      * it can, or this is not one.
      */
-    val bitcoinInvoiceBlocker: String?
+    val bitcoinInvoiceBlocker: UiText?
         get() {
             val t = active ?: return null
             if (!t.isBitcoinInvoice) return null
@@ -180,11 +182,11 @@ class SendViewModel(
                 val target = api.decode(input)
                 when {
                     target.kind == "unsupported" ->
-                        _ui.update { it.copy(decoding = false, inputError = target.message ?: "This can't be paid from this wallet.") }
+                        _ui.update { it.copy(decoding = false, inputError = target.message?.let(UiText::raw) ?: UiText.of(R.string.send_cant_pay_from_wallet)) }
                     target.ours ->
-                        _ui.update { it.copy(decoding = false, inputError = "That was made by your own node. To move funds between your balances, open or close a channel in the dashboard.") }
+                        _ui.update { it.copy(decoding = false, inputError = UiText.of(R.string.send_own_node)) }
                     target.expired ->
-                        _ui.update { it.copy(decoding = false, inputError = "This request has expired. Ask for a new one.") }
+                        _ui.update { it.copy(decoding = false, inputError = UiText.of(R.string.send_request_expired_ask_new)) }
                     else -> {
                         requestId = NodeApi.newRequestId()
                         _ui.update {
@@ -207,7 +209,7 @@ class SendViewModel(
             } catch (e: ApiException) {
                 _ui.update { it.copy(decoding = false, inputError = decodeError(e)) }
             } catch (e: Exception) {
-                _ui.update { it.copy(decoding = false, inputError = "Can't reach your node to read this. Try again.") }
+                _ui.update { it.copy(decoding = false, inputError = UiText.of(R.string.send_cant_reach_node_to_read)) }
             }
         }
     }
@@ -216,13 +218,13 @@ class SendViewModel(
      * A dashboard too old to pay SHA256 invoices says the recipient has not
      * upgraded; it is the user's own dashboard that is behind.
      */
-    private fun decodeError(e: ApiException): String {
+    private fun decodeError(e: ApiException): UiText {
         val dashboard = wallet.state.value.dashboard
         val old = dashboard != null && !dashboard.paysSha256Invoices
         return if (old && e.code == null && e.message.contains("has not upgraded")) {
-            "This looks like a SHA256 invoice. Your dashboard is too old to pay those: update Lightning Fork on your node."
+            UiText.of(R.string.send_dashboard_too_old)
         } else {
-            e.message
+            UiText.raw(e.message)
         }
     }
 
@@ -285,7 +287,7 @@ class SendViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _ui.update { it.copy(feesError = (e as? ApiException)?.message ?: "Can't get fee rates from your node.") }
+                _ui.update { it.copy(feesError = (e as? ApiException)?.message?.let(UiText::raw) ?: UiText.of(R.string.send_cant_get_fee_rates)) }
             }
         }
     }
@@ -316,35 +318,35 @@ class SendViewModel(
                 throw e
             } catch (e: ApiException) {
                 if (estimateJob !== coroutineContext[Job]) return@launch
-                _ui.update { it.copy(estimate = null, estimateError = e.message, estimating = false) }
+                _ui.update { it.copy(estimate = null, estimateError = UiText.raw(e.message), estimating = false) }
             } catch (e: Exception) {
                 if (estimateJob !== coroutineContext[Job]) return@launch
-                _ui.update { it.copy(estimating = false, estimateError = "Couldn't work out the fee. Check the connection.") }
+                _ui.update { it.copy(estimating = false, estimateError = UiText.of(R.string.send_cant_work_out_fee)) }
             }
         }
         estimateJob = job
     }
 
     /** Why the current review can't be sent yet, or null when it can. */
-    fun blocker(s: SendUi = _ui.value): String? {
-        val t = s.active ?: return "Nothing to pay"
+    fun blocker(s: SendUi = _ui.value): UiText? {
+        val t = s.active ?: return UiText.of(R.string.send_blocker_nothing)
         val w = wallet.state.value.wallet
         // Expiry by the clock now, not when the request was read.
         val expiresAt = t.expiresAt
         if (t.expired || (expiresAt != null && expiresAt > 0 && expiresAt <= System.currentTimeMillis() / 1000)) {
-            return "This request has expired"
+            return UiText.of(R.string.send_blocker_expired)
         }
         s.bitcoinInvoiceBlocker?.let { return it }
-        if (s.onchain && s.estimateError != null) return "Can't send this yet"
+        if (s.onchain && s.estimateError != null) return UiText.of(R.string.send_blocker_cant_send_yet)
         val amount = s.amountSat
-        if (amount == null || amount <= 0) return if (s.onchain && s.sendAll) "Working out the fee…" else "Enter an amount"
+        if (amount == null || amount <= 0) return if (s.onchain && s.sendAll) UiText.of(R.string.send_blocker_working_out_fee) else UiText.of(R.string.send_blocker_enter_amount)
         if (s.onchain) {
-            if (s.satPerVbyte == null) return "Waiting for fee rates"
-            if (s.estimating) return "Working out the fee…"
-            val total = s.estimate?.totalSat ?: return "Working out the fee…"
-            if (w != null && total > w.onchain.confirmedSat) return "More than your on-chain balance"
+            if (s.satPerVbyte == null) return UiText.of(R.string.send_blocker_waiting_for_rates)
+            if (s.estimating) return UiText.of(R.string.send_blocker_working_out_fee)
+            val total = s.estimate?.totalSat ?: return UiText.of(R.string.send_blocker_working_out_fee)
+            if (w != null && total > w.onchain.confirmedSat) return UiText.of(R.string.send_blocker_over_onchain)
         } else if (w != null && amount > w.lightning.outboundSat) {
-            return "More than your Lightning balance"
+            return UiText.of(R.string.send_blocker_over_lightning)
         }
         return null
     }
@@ -407,14 +409,14 @@ class SendViewModel(
                             res.preimage,
                             bitcoinAmountSat = res.bitcoinInvoice?.amountSat?.takeIf { it > 0 } ?: pending.bitcoinAmountSat,
                         )
-                        "failed" -> throw ApiException(400, "The payment failed.")
+                        "failed" -> throw ApiException(400, PAYMENT_FAILED)
                         else -> throw java.io.IOException("payment ${res.status}")
                     }
                 } else {
                     val res = api.pay(if (again) pending.pay!!.copy(resume = true) else pending.pay!!)
                     when (res.status) {
                         "succeeded" -> SendResult(true, res.amountSat.takeIf { it > 0 } ?: pending.amountSat, res.feeSat, res.preimage)
-                        "failed" -> throw ApiException(400, "The payment failed.")
+                        "failed" -> throw ApiException(400, PAYMENT_FAILED)
                         else -> throw java.io.IOException("payment ${res.status}")
                     }
                 }
@@ -443,7 +445,7 @@ class SendViewModel(
                     _ui.update {
                         it.copy(
                             step = SendStep.Failed,
-                            error = e.message,
+                            error = errorText(e),
                             uncertain = false,
                             onItsWay = false,
                             autoChecking = false,
@@ -465,7 +467,7 @@ class SendViewModel(
                     _ui.update {
                         it.copy(
                             step = SendStep.Failed,
-                            error = e.message,
+                            error = errorText(e),
                             uncertain = true,
                             onItsWay = onItsWay,
                             checking = false,
@@ -477,10 +479,10 @@ class SendViewModel(
             } catch (e: com.paulscode.lightningfork.net.KeyUnavailableException) {
                 // Nothing was sent now; on a re-ask, the first may have been.
                 if (again) {
-                    _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = true, autoChecking = false, checking = false) }
+                    _ui.update { it.copy(step = SendStep.Failed, error = keyText(e), uncertain = true, autoChecking = false, checking = false) }
                 } else {
                     settings.pendingSend = null
-                    _ui.update { it.copy(step = SendStep.Failed, error = e.message, uncertain = false, checking = false) }
+                    _ui.update { it.copy(step = SendStep.Failed, error = keyText(e), uncertain = false, checking = false) }
                 }
             } catch (e: Exception) {
                 if (quiet && _ui.value.onItsWay) {
@@ -492,7 +494,7 @@ class SendViewModel(
                 _ui.update {
                     it.copy(
                         step = SendStep.Failed,
-                        error = "Lost touch with your node before it answered. The payment may still go through.",
+                        error = UiText.of(R.string.send_lost_touch),
                         uncertain = true,
                         onItsWay = false,
                         autoChecking = false,
@@ -531,7 +533,10 @@ class SendViewModel(
         viewModelScope.launch {
             try {
                 val target = api.decode(request)
-                if (!target.isBitcoinInvoice) throw ApiException(400, target.message ?: "This can't be paid from this wallet.")
+                if (!target.isBitcoinInvoice) {
+                    failRepricing(notice, target.message?.let(UiText::raw) ?: UiText.of(R.string.send_cant_pay_from_wallet))
+                    return@launch
+                }
                 requestId = NodeApi.newRequestId()
                 _ui.update {
                     it.copy(
@@ -540,24 +545,35 @@ class SendViewModel(
                         target = target,
                         payOnchain = false,
                         error = null,
-                        reviewNotice = notice,
+                        reviewNotice = notice?.let(UiText::raw),
                     )
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                val why = (e as? ApiException)?.message ?: "Can't reach your node to get the new price."
-                _ui.update {
-                    it.copy(
-                        step = SendStep.Failed,
-                        repricing = false,
-                        error = listOfNotNull(notice, why).joinToString(" "),
-                        uncertain = false,
-                    )
-                }
+                failRepricing(notice, (e as? ApiException)?.message?.let(UiText::raw) ?: UiText.of(R.string.send_cant_reach_node_for_price))
             }
         }
     }
+
+    /** The new price could not be had: [notice], why it was asked for, and [why] not. */
+    private fun failRepricing(notice: String?, why: UiText) {
+        _ui.update {
+            it.copy(
+                step = SendStep.Failed,
+                repricing = false,
+                error = if (notice == null) why else UiText.Joined(listOf(UiText.raw(notice), why)),
+                uncertain = false,
+            )
+        }
+    }
+
+    /** The node's own words, or the app's when it said the payment failed. */
+    private fun errorText(e: ApiException): UiText =
+        if (e.code == null && e.message == PAYMENT_FAILED) UiText.of(R.string.send_payment_failed) else UiText.raw(e.message)
+
+    private fun keyText(e: com.paulscode.lightningfork.net.KeyUnavailableException): UiText =
+        UiText.of(if (e.lost) R.string.send_key_lost else R.string.send_key_unavailable)
 
     /**
      * After a failure: an uncertain send is asked about again, unchanged; a
@@ -594,5 +610,8 @@ class SendViewModel(
     private companion object {
         const val POLL_EVERY_MS = 8_000L
         const val POLL_FOR_MS = 15 * 60_000L
+
+        /** The app's own word for a payment the node says failed; shown as send_payment_failed. */
+        const val PAYMENT_FAILED = "The payment failed."
     }
 }

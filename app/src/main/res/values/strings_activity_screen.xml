@@ -12,6 +12,7 @@
     <string name="activityscreen_amount_out">−%1$s</string>
     <!-- What a SHA256 invoice paid, with its unit. -->
     <string name="activityscreen_paid">paid %1$s</string>
+    <string name="activityscreen_from_your_bridge">from your bridge</string>
     <string name="activityscreen_fee">fee %1$s</string>
     <string name="activityscreen_description">Description</string>
     <string name="activityscreen_paid_on_sha256">Paid on the SHA256 chain</string>

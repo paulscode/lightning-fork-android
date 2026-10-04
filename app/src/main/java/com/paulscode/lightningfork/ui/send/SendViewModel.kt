@@ -65,6 +65,8 @@ data class SendUi(
     val retryable: Boolean = true,
     /** What is being sent, or asked about, is a Bitcoin invoice. */
     val sendingBitcoinInvoice: Boolean = false,
+    /** ...paid from the node's own bridge, with no service. */
+    val sendingFromOwnBridge: Boolean = false,
     /** A Bitcoin invoice's price is being read anew. */
     val repricing: Boolean = false,
     /** Why the review is shown again, such as a new price. */
@@ -407,6 +409,7 @@ class SendViewModel(
                     onItsWay = false,
                     retryable = true,
                     sendingBitcoinInvoice = bitcoin,
+                    sendingFromOwnBridge = pending.fromOwnBridge,
                     repricing = false,
                     reviewNotice = null,
                     checking = again,

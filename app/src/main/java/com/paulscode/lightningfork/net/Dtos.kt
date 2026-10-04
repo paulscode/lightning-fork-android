@@ -103,6 +103,8 @@ data class BitcoinInvoicesStatus(
     val error: String? = null,
     val reference: BitcoinInvoiceReference? = null,
     val referenceError: String? = null,
+    /** Set when the node runs its own bridge, which pays before any service. */
+    val ownBridge: OwnBridge? = null,
 )
 
 @Serializable
@@ -175,6 +177,27 @@ data class BitcoinInvoiceEstimate(
     val refusal: String? = null,
     /** The service's own code for [refusal]. */
     val refusalCode: String? = null,
+    /**
+     * "own_bridge" when the node pays it from its own bridge's SHA256 node:
+     * nothing of this chain is spent (the amounts above are 0), and the
+     * sha256 fields say what that node pays.
+     */
+    val source: String = "",
+    val sha256AmountSat: Long = 0,
+    val sha256RoutingFeeLimitSat: Long = 0,
+    val sha256AvailableSat: Long = 0,
+) {
+    val fromOwnBridge: Boolean get() = source == OWN_BRIDGE
+}
+
+/** Paid from the node's own bridge, as the dashboard names it. */
+const val OWN_BRIDGE = "own_bridge"
+
+/** The node's own bridge, which pays SHA256 invoices from its SHA256 node. */
+@Serializable
+data class OwnBridge(
+    val ready: Boolean = false,
+    val availableSat: Long = 0,
 )
 
 /**
@@ -372,6 +395,8 @@ data class ActivityBitcoinInvoice(
     val description: String = "",
     val serviceLabel: String = "",
     val state: String = "",
+    /** "own_bridge": paid from the node's own bridge, nothing spent here. */
+    val source: String = "",
 )
 
 @Serializable
@@ -425,6 +450,8 @@ data class PendingSend(
     val startedAtMs: Long = 0,
     /** A Bitcoin invoice's own amount, in Bitcoin. */
     val bitcoinAmountSat: Long? = null,
+    /** A SHA256 invoice the node's own bridge pays: nothing spent here. */
+    val fromOwnBridge: Boolean = false,
 ) {
     val lightning: Boolean get() = pay != null || bitcoinInvoice != null
 }

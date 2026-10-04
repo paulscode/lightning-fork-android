@@ -437,7 +437,12 @@ private fun PendingSendCard(p: com.paulscode.lightningfork.net.PendingSend, unit
             Text(stringResource(R.string.home_pending_title), style = MaterialTheme.typography.titleSmall, color = TextPrimary)
             Text(
                 if (p.bitcoinInvoice != null) {
-                    val most = Format.amountWithUnit(p.amountSat, unit, com.paulscode.lightningfork.util.Coin.Btcb2)
+                    // From the node's own bridge: what its SHA256 node pays.
+                    val most = if (p.fromOwnBridge) {
+                        Format.amountWithUnit(p.bitcoinAmountSat ?: 0, unit, com.paulscode.lightningfork.util.Coin.Sha256)
+                    } else {
+                        Format.amountWithUnit(p.amountSat, unit, com.paulscode.lightningfork.util.Coin.Btcb2)
+                    }
                     val since = startedAgo(p)
                     if (since != null) stringResource(R.string.home_pending_sha256_since, most, since)
                     else stringResource(R.string.home_pending_sha256, most)

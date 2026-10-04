@@ -19,6 +19,11 @@
     <string name="settings_asking_node">Asking your node…</string>
     <string name="settings_sha256_no_status">Paying SHA256 invoices is set up in the dashboard, under Paying SHA256 invoices. Update Lightning Fork on your node to see its status here.</string>
     <string name="settings_sha256_not_set_up">Not set up. To pay SHA256 invoices from this phone, add a service in the dashboard, under Paying SHA256 invoices, with the code its operator gives you.</string>
+    <string name="settings_own_bridge">Your bridge</string>
+    <!-- %1$s: what the bridge's SHA256 node can send, in SHA256 sats. -->
+    <string name="settings_own_bridge_can_send">Pays, up to %1$s</string>
+    <string name="settings_own_bridge_not_ready">Not ready yet</string>
+    <string name="settings_own_bridge_explained">This node runs a bridge, so SHA256 invoices are paid from its SHA256 node, with no fee and nothing spent from this wallet. A service is used only for one your bridge can\'t pay.</string>
     <string name="settings_service">Service</string>
     <!-- Shown as the service's name when it has none. -->
     <string name="settings_service_set_up">Set up</string>

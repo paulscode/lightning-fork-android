@@ -272,8 +272,25 @@ private fun Sha256InvoicesCard(container: AppContainer, wallet: WalletState) {
     var error by remember { mutableStateOf<UiText?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     if (explain) com.paulscode.lightningfork.ui.send.Sha256Explainer(onDismiss = { explain = false })
+    // Asked once on its own: whether the node runs a bridge of its own, which
+    // pays SHA256 invoices before any service, is only in the full answer.
+    androidx.compose.runtime.LaunchedEffect(dashboard?.paysSha256Invoices) {
+        if (dashboard?.paysSha256Invoices == true && status == null) {
+            status = runCatching { container.api.bitcoinInvoices() }.getOrNull()
+        }
+    }
     AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
         val summary = dashboard?.bitcoinInvoices
+        val own = status?.ownBridge
+        if (own != null && dashboard?.paysSha256Invoices == true) {
+            InfoRow(
+                stringResource(R.string.settings_own_bridge),
+                if (own.ready) stringResource(R.string.settings_own_bridge_can_send, Format.amountWithUnit(own.availableSat, AmountUnit.Sats, com.paulscode.lightningfork.util.Coin.Sha256))
+                else stringResource(R.string.settings_own_bridge_not_ready),
+                valueColor = if (own.ready) Success else Warning,
+            )
+            Text(stringResource(R.string.settings_own_bridge_explained), style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        }
         when {
             dashboard == null -> Text(stringResource(R.string.settings_asking_node), style = MaterialTheme.typography.bodySmall, color = TextMuted)
             // A dashboard that doesn't say: .15 and .16 pay SHA256 invoices
@@ -283,6 +300,7 @@ private fun Sha256InvoicesCard(container: AppContainer, wallet: WalletState) {
                 style = MaterialTheme.typography.bodySmall,
                 color = TextMuted,
             )
+            (summary == null || !summary.configured) && own != null -> Unit
             summary == null || !summary.configured -> Text(
                 stringResource(R.string.settings_sha256_not_set_up),
                 style = MaterialTheme.typography.bodySmall,

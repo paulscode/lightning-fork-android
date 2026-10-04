@@ -43,6 +43,7 @@ object SendRules {
                     ),
                     amountSat = est.maxIncomingSat + est.routingFeeLimitSat,
                     bitcoinAmountSat = t.amountSat,
+                    fromOwnBridge = est.fromOwnBridge,
                     startedAtMs = nowMs,
                 )
             }
@@ -131,6 +132,8 @@ object SendRules {
             "too_large" -> R.string.send_blocker_too_large
             "rate" -> R.string.send_blocker_rate
             "reference_unavailable" -> R.string.send_blocker_no_market_rate
+            "own_bridge_not_ready" -> R.string.send_blocker_own_bridge_not_ready
+            "own_bridge_no_liquidity" -> R.string.send_blocker_own_bridge_no_liquidity
             "unreachable", "unavailable", "internal", "invalid_response", "tor_required", "cert_mismatch", "not_authorized" ->
                 R.string.send_blocker_service_unusable
             null -> R.string.send_blocker_cant_pay_now
@@ -143,7 +146,7 @@ object SendRules {
         "no_service", "no_amount", "not_bitcoin_invoice", "tor_required", "cert_mismatch",
         "not_authorized", "wrong_node", "unsupported_version",
     )
-    private val FIXED_IN_DASHBOARD = setOf("no_service", "tor_required", "cert_mismatch", "not_authorized", "rate", "wrong_node", "unsupported_version")
+    private val FIXED_IN_DASHBOARD = setOf("no_service", "own_bridge_no_liquidity", "tor_required", "cert_mismatch", "not_authorized", "rate", "wrong_node", "unsupported_version")
 
     /** The service asks more than the user agreed to: show the new price. */
     const val PRICE_CHANGED = "price_changed"

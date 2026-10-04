@@ -324,4 +324,46 @@ class BitcoinInvoiceTest {
         val sha = PendingSend(bitcoinInvoice = BitcoinInvoicePayRequest("lnbc1", 10, "r"), amountSat = 10, startedAtMs = now - 3 * day)
         assertFalse(SendRules.tooOldToCheck(sha, now))
     }
+
+    // Paid from the node's own bridge.
+
+    private val ownBridge = ApiJson.decodeFromString(
+        PaymentTarget.serializer(),
+        """{"kind":"bitcoin-invoice","request":"lnbc1500n1pexample","amountSat":150,"amountEditable":false,"description":"A sticker","paymentHash":"9f","createdAt":1790912000,"expiresAt":1790915600,"expired":false,"ours":false,"payable":true,"message":null,"estimate":{"source":"own_bridge","incomingSat":0,"feeSat":0,"maxIncomingSat":0,"routingFeeLimitSat":0,"sha256AmountSat":150,"sha256RoutingFeeLimitSat":10,"sha256AvailableSat":480000,"rate":0,"spread":0,"serviceLabel":"Your bridge","open":true}}""",
+    )
+
+    @Test fun one_the_nodes_own_bridge_pays_spends_nothing_here() {
+        val est = ownBridge.estimate!!
+        assertTrue(est.fromOwnBridge)
+        assertEquals(150L, est.sha256AmountSat)
+        assertEquals(10L, est.sha256RoutingFeeLimitSat)
+        assertEquals(480_000L, est.sha256AvailableSat)
+        assertFalse(payable.estimate!!.fromOwnBridge)
+
+        val s = SendUi(target = ownBridge)
+        assertNull("nothing spent here is not a reason to refuse", s.bitcoinInvoiceBlocker)
+        val pending = SendRules.pendingFor(s, "req-12345678", 5)!!
+        assertTrue(pending.fromOwnBridge)
+        assertEquals(0L, pending.bitcoinInvoice!!.maxIncomingSat)
+        assertEquals(150L, pending.bitcoinAmountSat)
+        assertFalse(SendRules.pendingFor(SendUi(target = payable), "req-12345678", 5)!!.fromOwnBridge)
+    }
+
+    @Test fun an_own_bridge_that_cant_pay_says_so() {
+        assertEquals(UiText.of(R.string.send_blocker_own_bridge_no_liquidity), SendRules.blockerLabel("own_bridge_no_liquidity"))
+        assertEquals(UiText.of(R.string.send_blocker_own_bridge_not_ready), SendRules.blockerLabel("own_bridge_not_ready"))
+        assertNotNull(SendRules.dashboardHint("own_bridge_no_liquidity"))
+        assertTrue(SendRules.retryable("own_bridge_no_liquidity"))
+    }
+
+    @Test fun activity_from_the_own_bridge() {
+        val r = ApiJson.decodeFromString(
+            ActivityResponse.serializer(),
+            """{"items":[{"id":"pay:9f","kind":"lightning","direction":"out","amountSat":0,"feeSat":0,"timestamp":1790912000,"status":"complete","description":"A sticker","reference":"9f","bitcoinInvoice":{"amountSat":150,"description":"A sticker","serviceLabel":"Your bridge","state":"paid","source":"own_bridge","sha256FeeSat":3},"preimage":"aa"}]}""",
+        )
+        val inv = r.items.single().bitcoinInvoice!!
+        assertEquals("own_bridge", inv.source)
+        assertEquals(150L, inv.amountSat)
+        assertNull(ActivityLabels.status(r.items.single()))
+    }
 }

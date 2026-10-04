@@ -208,7 +208,13 @@ private fun ActivityRow(item: ActivityItem, unit: AmountUnit) {
                 Text(
                     stringResource(
                         if (incoming) R.string.activityscreen_amount_in else R.string.activityscreen_amount_out,
-                        Format.amountWithUnit(item.amountSat, unit, if (bitcoin != null) Coin.Btcb2 else null),
+                        // From the node's own bridge, nothing was spent here:
+                        // what its SHA256 node paid.
+                        if (bitcoin?.source == com.paulscode.lightningfork.net.OWN_BRIDGE) {
+                            Format.amountWithUnit(bitcoin.amountSat, unit, Coin.Sha256)
+                        } else {
+                            Format.amountWithUnit(item.amountSat, unit, if (bitcoin != null) Coin.Btcb2 else null)
+                        },
                     ),
                     style = MaterialTheme.typography.titleSmall,
                     color = when {
@@ -217,7 +223,9 @@ private fun ActivityRow(item: ActivityItem, unit: AmountUnit) {
                         else -> TextPrimary
                     },
                 )
-                if (bitcoin != null) {
+                if (bitcoin?.source == com.paulscode.lightningfork.net.OWN_BRIDGE) {
+                    Text(stringResource(R.string.activityscreen_from_your_bridge), style = MaterialTheme.typography.bodySmall, color = TextFaint)
+                } else if (bitcoin != null) {
                     Text(stringResource(R.string.activityscreen_paid, Format.amountWithUnit(bitcoin.amountSat, unit, Coin.Sha256)), style = MaterialTheme.typography.bodySmall, color = TextFaint)
                 } else if (!incoming && item.feeSat > 0) {
                     Text(stringResource(R.string.activityscreen_fee, Format.amountWithUnit(item.feeSat, unit)), style = MaterialTheme.typography.bodySmall, color = TextFaint)

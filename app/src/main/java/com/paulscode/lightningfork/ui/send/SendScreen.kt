@@ -493,7 +493,21 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
     var explain by remember { mutableStateOf(false) }
     if (explain) Sha256Explainer(onDismiss = { explain = false })
     AppCard(Modifier.fillMaxWidth()) {
-        if (est != null) {
+        if (est != null && est.fromOwnBridge) {
+            // The node's own bridge pays it from its SHA256 node: nothing
+            // of this chain is spent and there is no fee.
+            Text(stringResource(R.string.send_amount_sha256), style = MaterialTheme.typography.labelMedium, color = TextMuted)
+            Spacer(Modifier.height(6.dp))
+            AnimatedAmount(est.sha256AmountSat, ui.unit, style = MaterialTheme.typography.displaySmall, color = TextPrimary, coin = Coin.Sha256)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.send_own_bridge_routing, Format.amountWithUnit(est.sha256RoutingFeeLimitSat, ui.unit, Coin.Sha256)),
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted,
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(stringResource(R.string.send_own_bridge_pays), style = MaterialTheme.typography.bodySmall, color = TextPrimary)
+        } else if (est != null) {
             Text(stringResource(R.string.send_at_most), style = MaterialTheme.typography.labelMedium, color = TextMuted)
             Spacer(Modifier.height(6.dp))
             val most = est.maxIncomingSat + est.routingFeeLimitSat
@@ -544,7 +558,7 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
                 if (fiat != null) stringResource(R.string.send_amount_with_fiat, amount, fiat) else amount,
             )
         }
-        est?.let { InfoRow(stringResource(R.string.send_service_fee), stringResource(R.string.send_service_fee_included, Format.amountWithUnit(it.feeSat, ui.unit, Coin.Btcb2))) }
+        est?.takeIf { !it.fromOwnBridge }?.let { InfoRow(stringResource(R.string.send_service_fee), stringResource(R.string.send_service_fee_included, Format.amountWithUnit(it.feeSat, ui.unit, Coin.Btcb2))) }
         t.expiresAt?.let { ExpiryRow(it) }
         val expanded = stringResource(R.string.send_expanded)
         val collapsed = stringResource(R.string.send_collapsed)
@@ -589,7 +603,7 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
             }
         }
     }
-    if (est != null) {
+    if (est != null && !est.fromOwnBridge) {
         Text(
             stringResource(R.string.send_includes_routing, Format.amountWithUnit(est.routingFeeLimitSat, ui.unit, Coin.Btcb2)),
             style = MaterialTheme.typography.bodySmall,
@@ -598,7 +612,11 @@ private fun BitcoinInvoiceReview(ui: SendUi, t: PaymentTarget, wallet: WalletSta
         )
     }
     Text(
-        stringResource(R.string.send_lightning_balance, Format.amountWithUnit(wallet.wallet?.lightning?.outboundSat ?: 0, ui.unit, Coin.Btcb2)),
+        if (est != null && est.fromOwnBridge) {
+            stringResource(R.string.send_own_bridge_balance, Format.amountWithUnit(est.sha256AvailableSat, ui.unit, Coin.Sha256))
+        } else {
+            stringResource(R.string.send_lightning_balance, Format.amountWithUnit(wallet.wallet?.lightning?.outboundSat ?: 0, ui.unit, Coin.Btcb2))
+        },
         style = MaterialTheme.typography.bodySmall,
         color = TextMuted,
         modifier = Modifier.padding(top = 6.dp, start = 4.dp),
@@ -755,6 +773,7 @@ private fun SendingStep(ui: SendUi, onClose: () -> Unit) {
                 when {
                     ui.repricing -> stringResource(R.string.send_sending_repricing)
                     ui.checking -> stringResource(R.string.send_sending_checking)
+                    ui.sendingFromOwnBridge -> stringResource(R.string.send_sending_own_bridge)
                     ui.sendingBitcoinInvoice -> stringResource(R.string.send_sending_sha256)
                     ui.onchain -> stringResource(R.string.send_sending_onchain)
                     else -> stringResource(R.string.send_sending_lightning)
@@ -914,7 +933,9 @@ private fun FailedStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit) {
             if (ui.uncertain) {
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    if (ui.onItsWay) {
+                    if (ui.onItsWay && ui.sendingFromOwnBridge) {
+                        stringResource(R.string.send_on_its_way_own_bridge)
+                    } else if (ui.onItsWay) {
                         ui.maxHoldHours?.let { stringResource(R.string.send_on_its_way_within, Format.hoursRoughly(it)) }
                             ?: stringResource(R.string.send_on_its_way)
                     } else {

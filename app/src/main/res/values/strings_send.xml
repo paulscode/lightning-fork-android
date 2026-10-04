@@ -50,6 +50,11 @@
     <string name="send_routing_fee_usual">Usually a few sats</string>
     <!-- %1$s: an amount with its unit. -->
     <string name="send_lightning_balance">Lightning balance: %1$s</string>
+    <!-- %1$s: what the bridge's SHA256 node can send, in SHA256 sats. -->
+    <string name="send_own_bridge_balance">Your bridge can send %1$s</string>
+    <string name="send_own_bridge_pays">Paid from your bridge\'s SHA256 node. Nothing is spent from this wallet, and there is no fee.</string>
+    <!-- %1$s: the most routing can cost, in SHA256 sats. -->
+    <string name="send_own_bridge_routing">Plus up to %1$s for routing</string>
     <string name="send_try_again">Try again</string>
     <!-- The send button. %1$s: an amount with its unit. -->
     <string name="send_pay_at_most">Pay at most %1$s</string>
@@ -144,6 +149,7 @@
     <string name="send_sending_repricing">Your node is asking the service what this SHA256 invoice costs now.</string>
     <string name="send_sending_checking">Your node is looking up this payment. It is never paid twice.</string>
     <string name="send_sending_sha256">Your node pays the service, which pays the SHA256 invoice. This can take a minute or two.</string>
+    <string name="send_sending_own_bridge">Your bridge\'s SHA256 node is paying the invoice. This can take a minute.</string>
     <string name="send_sending_onchain">Your node is signing and broadcasting the transaction.</string>
     <string name="send_sending_lightning">Your node is finding a route to the recipient.</string>
     <string name="send_close_carries_on">Close, it carries on</string>
@@ -168,6 +174,7 @@
     <!-- %1$s: a time such as "about 3 days". -->
     <string name="send_on_its_way_within">The service pays the SHA256 invoice first, which can take a while. If it never pays, your payment comes back, usually within %1$s. Checking never pays it twice.</string>
     <string name="send_on_its_way">The service pays the SHA256 invoice first, which can take a while. If it never pays, your payment comes back. Checking never pays it twice.</string>
+    <string name="send_on_its_way_own_bridge">Your bridge\'s SHA256 node is still paying the invoice. Checking never pays it twice.</string>
     <string name="send_uncertain_explained">Check again asks your node about this same payment and never pays it twice. Your activity shows it too once it went through.</string>
     <string name="send_checking_on_its_own">Checking again on its own</string>
     <string name="send_check_again">Check again</string>
@@ -208,6 +215,8 @@
     <string name="send_blocker_too_large">Too large for the service</string>
     <string name="send_blocker_rate">Price above what you allow</string>
     <string name="send_blocker_no_market_rate">No market rate right now</string>
+    <string name="send_blocker_own_bridge_not_ready">Your bridge isn\'t ready</string>
+    <string name="send_blocker_own_bridge_no_liquidity">Not enough in your bridge</string>
     <string name="send_blocker_service_unusable">The service can\'t be used now</string>
     <string name="send_blocker_cant_pay_now">Can\'t pay this now</string>
     <string name="send_blocker_service_not_paying">The service isn\'t paying now</string>

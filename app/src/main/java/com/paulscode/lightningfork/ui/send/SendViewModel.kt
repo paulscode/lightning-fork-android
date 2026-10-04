@@ -20,6 +20,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -84,6 +85,8 @@ data class SendUi(
     val needsOperator: Boolean = false,
     /** Refused as paid already: not a failure. */
     val alreadyPaid: Boolean = false,
+    /** An unfinished payment from more than a day ago: not asked about, which could send it now. */
+    val tooOldToCheck: Boolean = false,
 ) {
     /** What will actually be paid: the request, or its on-chain alternative. */
     val active: PaymentTarget?
@@ -141,6 +144,10 @@ class SendViewModel(
 
     private var estimateJob: Job? = null
     private var pollJob: Job? = null
+    /** An ask made on its own while a SHA256 invoice is on its way. */
+    private var quietJob: Job? = null
+    /** Bumped by every ask the user makes, so an ask made on its own meanwhile is not shown over it. */
+    private var generation = 0
     private var pollUntilMs = 0L
     private var requestId = NodeApi.newRequestId()
     private var lastSent: PendingSend? = null
@@ -150,7 +157,22 @@ class SendViewModel(
         if (pending != null) {
             // A send whose outcome the app never heard: ask about it now.
             requestId = pending.onchain?.requestId ?: pending.pay?.requestId ?: pending.bitcoinInvoice?.requestId ?: requestId
-            execute(pending, again = true)
+            if (SendRules.tooOldToCheck(pending, System.currentTimeMillis())) {
+                // The node keeps a request's outcome for a day; asked later,
+                // one it never got would be sent now, at a fee or a price
+                // from then. Said, not sent: the user checks their activity.
+                lastSent = pending
+                _ui.update {
+                    it.copy(
+                        step = SendStep.Failed,
+                        error = UiText.of(R.string.send_too_old_to_check),
+                        uncertain = true,
+                        tooOldToCheck = true,
+                    )
+                }
+            } else {
+                execute(pending, again = true)
+            }
         } else if (!prefill.isNullOrBlank()) {
             submit(prefill)
         }
@@ -219,9 +241,10 @@ class SendViewModel(
      * upgraded; it is the user's own dashboard that is behind.
      */
     private fun decodeError(e: ApiException): UiText {
-        val dashboard = wallet.state.value.dashboard
-        val old = dashboard != null && !dashboard.paysSha256Invoices
-        return if (old && e.code == null && e.message.contains("has not upgraded")) {
+        // A dashboard that pays SHA256 invoices never says this to an app
+        // that declares it can show them; only one too old to know them
+        // does, and without a code.
+        return if (e.code == null && e.message.contains("has not upgraded")) {
             UiText.of(R.string.send_dashboard_too_old)
         } else {
             UiText.raw(e.message)
@@ -372,7 +395,10 @@ class SendViewModel(
         settings.pendingSend = pending
         val bitcoin = pending.bitcoinInvoice != null
         if (!quiet) {
+            generation++
             pollJob?.cancel()
+            quietJob?.cancel()
+            quietJob = null
             _ui.update {
                 it.copy(
                     step = SendStep.Sending,
@@ -393,7 +419,11 @@ class SendViewModel(
                 )
             }
         }
-        viewModelScope.launch {
+        val gen = generation
+        // An answer to an ask made on its own, after the user asked anew:
+        // theirs is the one on screen.
+        fun stale() = quiet && gen != generation
+        val job = viewModelScope.launch {
             try {
                 val bitcoinRequest = SendRules.bitcoinInvoiceRequest(pending, again)
                 val result = if (pending.onchain != null) {
@@ -420,6 +450,7 @@ class SendViewModel(
                         else -> throw java.io.IOException("payment ${res.status}")
                     }
                 }
+                if (stale()) return@launch
                 settings.pendingSend = null
                 pollJob?.cancel()
                 _ui.update { it.copy(step = SendStep.Done, result = result, autoChecking = false, checking = false) }
@@ -427,6 +458,7 @@ class SendViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ApiException) {
+                if (stale()) return@launch
                 // Asking again, only the node's verdict on the payment settles
                 // it: an error on the way (5xx, a removed key, a reused id)
                 // leaves it as unknown as before, under the same id.
@@ -477,6 +509,7 @@ class SendViewModel(
                     if (onItsWay) keepChecking(pending) else _ui.update { it.copy(autoChecking = false) }
                 }
             } catch (e: com.paulscode.lightningfork.net.KeyUnavailableException) {
+                if (stale()) return@launch
                 // Nothing was sent now; on a re-ask, the first may have been.
                 if (again) {
                     _ui.update { it.copy(step = SendStep.Failed, error = keyText(e), uncertain = true, autoChecking = false, checking = false) }
@@ -485,6 +518,7 @@ class SendViewModel(
                     _ui.update { it.copy(step = SendStep.Failed, error = keyText(e), uncertain = false, checking = false) }
                 }
             } catch (e: Exception) {
+                if (stale()) return@launch
                 if (quiet && _ui.value.onItsWay) {
                     // Asked on its own and not answered: it is still on its
                     // way as far as anyone knows. Asked again later.
@@ -503,6 +537,7 @@ class SendViewModel(
                 }
             }
         }
+        if (quiet) quietJob = job
     }
 
     /**
@@ -520,6 +555,9 @@ class SendViewModel(
         pollJob?.cancel()
         pollJob = viewModelScope.launch {
             delay(POLL_EVERY_MS)
+            // Not while the app is in the background: no asks over Tor
+            // nobody is looking at; it asks again on coming back.
+            wallet.foreground.first { it }
             if (_ui.value.step == SendStep.Failed && _ui.value.onItsWay) execute(pending, again = true, quiet = true)
         }
     }
@@ -564,6 +602,8 @@ class SendViewModel(
                 repricing = false,
                 error = if (notice == null) why else UiText.Joined(listOf(UiText.raw(notice), why)),
                 uncertain = false,
+                hint = null,
+                retryAtMs = null,
             )
         }
     }
@@ -584,6 +624,7 @@ class SendViewModel(
         val s = _ui.value
         if (s.step != SendStep.Failed) return
         if (s.retryAtMs != null && System.currentTimeMillis() < s.retryAtMs) return
+        if (s.tooOldToCheck) return
         val sent = lastSent
         val bitcoinRequest = sent?.bitcoinInvoice?.request ?: s.target?.takeIf { it.isBitcoinInvoice }?.request
         if (s.uncertain && sent != null) {

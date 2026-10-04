@@ -228,12 +228,19 @@ fun AmountField(
         AppTextField(
             value = text,
             onValueChange = { raw ->
-                // Sats: digits, with commas as grouping. BTC: digits and one
-                // decimal point, which a comma (the decimal key on many
-                // keyboards) also types, and no more than 8 places.
-                val v = if (unit == AmountUnit.Btc) raw.replace(',', '.') else raw
+                // Sats: digits only; grouping typed or pasted ("1,000",
+                // "1.000", "1 000") is dropped, whatever the language. BTC:
+                // digits and one decimal point, which any decimal mark (a
+                // comma, the Arabic ٫, the phone's own) also types, and no
+                // more than 8 places.
+                val v = if (unit == AmountUnit.Btc) {
+                    val mark = java.text.DecimalFormatSymbols.getInstance().decimalSeparator
+                    raw.map { c -> if (c == ',' || c == '٫' || c == mark) '.' else c }.joinToString("")
+                } else {
+                    raw.filter { it.isDigit() }
+                }
                 val ok = if (unit == AmountUnit.Sats) {
-                    v.all { it.isDigit() || it == ',' }
+                    true
                 } else {
                     v.all { it.isDigit() || it == '.' } && v.count { it == '.' } <= 1 &&
                         v.substringAfter('.', "").length <= 8

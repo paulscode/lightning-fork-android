@@ -17,7 +17,7 @@
     <!-- Paying SHA256 invoices -->
     <string name="settings_section_sha256">Paying SHA256 invoices</string>
     <string name="settings_asking_node">Asking your node…</string>
-    <string name="settings_sha256_dashboard_too_old">Your dashboard is too old to pay SHA256 invoices. Update Lightning Fork on your node to use them.</string>
+    <string name="settings_sha256_no_status">Paying SHA256 invoices is set up in the dashboard, under Paying SHA256 invoices. Update Lightning Fork on your node to see its status here.</string>
     <string name="settings_sha256_not_set_up">Not set up. To pay SHA256 invoices from this phone, add a service in the dashboard, under Paying SHA256 invoices, with the code its operator gives you.</string>
     <string name="settings_service">Service</string>
     <!-- Shown as the service's name when it has none. -->

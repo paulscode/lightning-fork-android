@@ -90,6 +90,9 @@ class WalletRepository(
     private var certFailures = 0
     private val refreshing = Mutex()
     private var lastPriceMs = 0L
+    /** Bumped when the currency changes, so a price asked for the old one is dropped. */
+    @Volatile
+    private var currencyGeneration = 0
     private var failuresInRow = 0
     private var lastNodeMs = 0L
 
@@ -297,9 +300,13 @@ class WalletRepository(
      * an estimate never wears a symbol its number isn't in.
      */
     private suspend fun refreshPrice() {
+        val asked = currencyGeneration
         val wanted = wantedCurrency()
         for (code in listOf(wanted, "USD").distinct()) {
             val p = runCatching { api.price(code) }.getOrNull() ?: continue
+            // The currency was changed while this was asked: its answer is
+            // for the old one, and the new one is being asked already.
+            if (asked != currencyGeneration || !settings.showFiat) return
             lastPriceMs = System.currentTimeMillis()
             if (p.price != null && p.price > 0) {
                 _state.update { it.copy(fiatPrice = p.price, fiatCurrency = p.currency.ifBlank { code }) }
@@ -319,8 +326,10 @@ class WalletRepository(
     /** A currency chosen in Settings, or null for the phone's own; asked anew at once. */
     fun setFiatCurrency(code: String?) {
         settings.fiatCurrency = code
+        currencyGeneration++
         lastPriceMs = 0
         _state.update { it.copy(fiatPrice = null) }
+        if (settings.showFiat) scope.launch { refreshPrice() }
     }
 
     fun reset() {

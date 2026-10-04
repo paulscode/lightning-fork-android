@@ -276,10 +276,12 @@ private fun Sha256InvoicesCard(container: AppContainer, wallet: WalletState) {
         val summary = dashboard?.bitcoinInvoices
         when {
             dashboard == null -> Text(stringResource(R.string.settings_asking_node), style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            // A dashboard that doesn't say: .15 and .16 pay SHA256 invoices
+            // without reporting it, older ones don't; Send tells which.
             !dashboard.paysSha256Invoices -> Text(
-                stringResource(R.string.settings_sha256_dashboard_too_old),
+                stringResource(R.string.settings_sha256_no_status),
                 style = MaterialTheme.typography.bodySmall,
-                color = Warning,
+                color = TextMuted,
             )
             summary == null || !summary.configured -> Text(
                 stringResource(R.string.settings_sha256_not_set_up),

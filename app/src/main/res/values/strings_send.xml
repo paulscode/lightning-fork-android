@@ -59,6 +59,8 @@
     <!-- The recipient -->
     <string name="send_sha256_explain_label">What paying a SHA256 invoice means</string>
     <string name="send_sha256_pill">SHA256 invoice ⓘ</string>
+    <!-- What a screen reader says for the pill above: what paying one means. -->
+    <string name="send_sha256_pill_spoken">SHA256 invoice. What paying one means</string>
     <!-- %1$s: the request's own description. -->
     <string name="send_description_quoted">“%1$s”</string>
 
@@ -124,6 +126,10 @@
     <!-- %1$s: a fee rate. -->
     <string name="send_sat_per_vb">%1$s sat/vB</string>
     <!-- %1$s: where the fee rates come from. -->
+    <string name="send_forget_payment">Forget this payment</string>
+    <string name="send_too_old_to_check">This payment started more than a day ago and your node never said whether it went through. Look for it in your activity: if it is there, it went through; if not, it never went out. Forget it here and send again if you still need to.</string>
+    <!-- What the system clipboard calls a copied transaction id. -->
+    <string name="send_clip_txid">transaction id</string>
     <string name="send_rates_from">Rates from %1$s</string>
     <string name="send_rates_from_node">Rates from your node\'s estimate</string>
     <string name="send_rates_from_minimum">The lowest rates the network relays</string>
@@ -160,7 +166,7 @@
     <string name="send_failed_already_paid">Already paid</string>
     <string name="send_failed">Payment didn\'t go through</string>
     <!-- %1$s: a time such as "about 3 days". -->
-    <string name="send_on_its_way_within">The service pays the SHA256 invoice first, which can take a while. If it never pays, your payment comes back, within %1$s. Checking never pays it twice.</string>
+    <string name="send_on_its_way_within">The service pays the SHA256 invoice first, which can take a while. If it never pays, your payment comes back, usually within %1$s. Checking never pays it twice.</string>
     <string name="send_on_its_way">The service pays the SHA256 invoice first, which can take a while. If it never pays, your payment comes back. Checking never pays it twice.</string>
     <string name="send_uncertain_explained">Check again asks your node about this same payment and never pays it twice. Your activity shows it too once it went through.</string>
     <string name="send_checking_on_its_own">Checking again on its own</string>

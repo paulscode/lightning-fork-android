@@ -37,6 +37,19 @@ class FormatTest {
         assertEquals(2500L, Format.parseAmount(Format.sats(2500), AmountUnit.Sats))
     }
 
+    @Test fun editable_btc_is_ascii_with_a_point_in_every_language() {
+        for (tag in listOf("en-US", "de-DE", "fr-FR", "ar-EG", "fa-IR", "hi-IN")) {
+            Format.localeOverride = java.util.Locale.forLanguageTag(tag)
+            assertEquals(tag, "0.00001000", Format.editable(1000, AmountUnit.Btc))
+            assertEquals(tag, 1000L, Format.parseAmount(Format.editable(1000, AmountUnit.Btc), AmountUnit.Btc))
+        }
+    }
+
+    @Test fun currencies_without_cents_show_none() {
+        assertEquals("≈ ¥123", Format.fiat(1_000_000, 12_300.0, "JPY"))
+        assertEquals("≈ $1.23", Format.fiat(10_000, 12_300.0, "USD"))
+    }
+
     @Test fun editable_amounts_read_back() {
         for (sats in listOf(0L, 1L, 1234L, 150_000_000L)) {
             assertEquals(sats, Format.parseAmount(Format.editable(sats, AmountUnit.Sats), AmountUnit.Sats))

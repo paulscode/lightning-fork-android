@@ -109,6 +109,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.stateDescription
 import com.paulscode.lightningfork.wallet.WalletState
 import kotlinx.coroutines.delay
@@ -439,10 +443,20 @@ private fun RecipientCard(t: PaymentTarget) {
             }
             if (t.isBitcoinInvoice) {
                 Spacer(Modifier.width(10.dp))
+                val sha256Spoken = stringResource(R.string.send_sha256_pill_spoken)
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(50))
-                        .clickable(onClickLabel = stringResource(R.string.send_sha256_explain_label)) { explain = true },
+                        .clickable(onClickLabel = stringResource(R.string.send_sha256_explain_label)) { explain = true }
+                        // Read as words, not the ⓘ glyph.
+                        .clearAndSetSemantics {
+                            contentDescription = sha256Spoken
+                            role = Role.Button
+                            onClick(label = sha256Spoken) {
+                                explain = true
+                                true
+                            }
+                        },
                 ) {
                     Pill(stringResource(R.string.send_sha256_pill), color = Warning)
                 }
@@ -824,7 +838,7 @@ private fun DoneStep(ui: SendUi, onClose: () -> Unit) {
                 }
                 Row(
                     Modifier.fillMaxWidth().clickable {
-                        Clipboard.copySensitive(context, r.reference, if (r.lightning) "preimage" else "txid")
+                        Clipboard.copySensitive(context, r.reference, context.getString(if (r.lightning) R.string.activityscreen_clip_preimage else R.string.send_clip_txid))
                     }.padding(vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -922,7 +936,7 @@ private fun FailedStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit) {
             ui.proof?.let { proof ->
                 Spacer(Modifier.height(16.dp))
                 Row(
-                    Modifier.fillMaxWidth().clickable { Clipboard.copySensitive(context, proof, "preimage") }.padding(vertical = 7.dp),
+                    Modifier.fillMaxWidth().clickable { Clipboard.copySensitive(context, proof, context.getString(R.string.activityscreen_clip_preimage)) }.padding(vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(stringResource(R.string.send_proof_of_payment), style = MaterialTheme.typography.bodyMedium, color = TextMuted)
@@ -935,6 +949,19 @@ private fun FailedStep(ui: SendUi, vm: SendViewModel, onClose: () -> Unit) {
         }
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             when {
+                // Too old to ask about without sending it: forget it, or leave
+                // it for later.
+                ui.tooOldToCheck -> {
+                    PrimaryButton(
+                        stringResource(R.string.send_forget_payment),
+                        onClick = {
+                            vm.dismissUncertain()
+                            onClose()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    SecondaryButton(stringResource(R.string.send_close), onClick = onClose, modifier = Modifier.fillMaxWidth())
+                }
                 ui.uncertain -> {
                     PrimaryButton(stringResource(R.string.send_check_again), onClick = vm::retry, modifier = Modifier.fillMaxWidth())
                     SecondaryButton(stringResource(R.string.send_close), onClick = onClose, modifier = Modifier.fillMaxWidth())

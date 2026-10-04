@@ -59,6 +59,15 @@ object SendRules {
         }
     }
 
+    /**
+     * Whether [pending] is too old to ask about: an on-chain or Lightning
+     * send the node may never have got, which asked about after the node has
+     * forgotten the request (a day) would be sent then. A SHA256 invoice is
+     * never paid anew by asking, so it can always be asked about.
+     */
+    fun tooOldToCheck(pending: PendingSend, nowMs: Long): Boolean =
+        pending.bitcoinInvoice == null && pending.startedAtMs > 0 && nowMs - pending.startedAtMs > 24 * 3600_000L
+
     /** [pending]'s Bitcoin invoice payment as it goes out: a re-ask says so. */
     fun bitcoinInvoiceRequest(pending: PendingSend, again: Boolean): BitcoinInvoicePayRequest? =
         pending.bitcoinInvoice?.let { if (again) it.copy(resume = true) else it }

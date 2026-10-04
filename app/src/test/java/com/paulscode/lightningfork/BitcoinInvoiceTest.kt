@@ -313,4 +313,15 @@ class BitcoinInvoiceTest {
         assertFalse(old.paysSha256Invoices)
         assertNull(old.bitcoinInvoices)
     }
+
+    @Test fun a_send_from_more_than_a_day_ago_is_not_asked_about() {
+        val day = 24 * 3600_000L
+        val now = 10 * day
+        val onchain = PendingSend(onchain = com.paulscode.lightningfork.net.OnchainSendRequest(address = "bc1q", amountSat = 1, satPerVbyte = 1, requestId = "r"), amountSat = 1, startedAtMs = now - day - 1)
+        assertTrue(SendRules.tooOldToCheck(onchain, now))
+        assertFalse(SendRules.tooOldToCheck(onchain.copy(startedAtMs = now - day + 60_000), now))
+        // A SHA256 invoice is never paid anew by asking: always asked about.
+        val sha = PendingSend(bitcoinInvoice = BitcoinInvoicePayRequest("lnbc1", 10, "r"), amountSat = 10, startedAtMs = now - 3 * day)
+        assertFalse(SendRules.tooOldToCheck(sha, now))
+    }
 }

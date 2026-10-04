@@ -55,7 +55,9 @@ object Format {
      */
     fun editable(sats: Long, unit: AmountUnit): String = when (unit) {
         AmountUnit.Sats -> sats.toString()
-        AmountUnit.Btc -> btc(sats)
+        // ASCII digits and a point, as the amount field types them in every
+        // language (it turns any decimal mark into one), and parseAmount reads.
+        AmountUnit.Btc -> BigDecimal(sats).movePointLeft(8).setScale(8).toPlainString()
     }
 
     /** A plural's category for a count of any size: its last digits decide. */
@@ -126,14 +128,12 @@ object Format {
         if (price == null || price <= 0) return null
         val value = sats / 1e8 * price
         val f = NumberFormat.getCurrencyInstance(locale)
-        runCatching { f.currency = Currency.getInstance(currency) }
-        if (value >= 1000) {
-            f.maximumFractionDigits = 0
-            f.minimumFractionDigits = 0
-        } else {
-            f.maximumFractionDigits = 2
-            f.minimumFractionDigits = 2
-        }
+        val cents = runCatching { Currency.getInstance(currency) }.getOrNull()?.also { f.currency = it }?.defaultFractionDigits ?: 2
+        // Whole units from a thousand up; below, the currency's own
+        // places (none for yen or won).
+        val places = if (value >= 1000) 0 else cents.coerceAtLeast(0)
+        f.maximumFractionDigits = places
+        f.minimumFractionDigits = places
         val written = f.format(value)
         return res?.getString(R.string.format_approx, written) ?: "≈ $written"
     }

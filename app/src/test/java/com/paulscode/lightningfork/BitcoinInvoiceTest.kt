@@ -342,6 +342,11 @@ class BitcoinInvoiceTest {
 
         val s = SendUi(target = ownBridge)
         assertNull("nothing spent here is not a reason to refuse", s.bitcoinInvoiceBlocker)
+        // The send button's checks skip this wallet's amount and balance:
+        // the amount here is 0, which would otherwise read "Enter an amount".
+        assertTrue(SendRules.paysFromOwnBridge(ownBridge))
+        assertFalse(SendRules.paysFromOwnBridge(payable))
+        assertEquals(0L, s.amountSat)
         val pending = SendRules.pendingFor(s, "req-12345678", 5)!!
         assertTrue(pending.fromOwnBridge)
         assertEquals(0L, pending.bitcoinInvoice!!.maxIncomingSat)
@@ -365,5 +370,17 @@ class BitcoinInvoiceTest {
         assertEquals("own_bridge", inv.source)
         assertEquals(150L, inv.amountSat)
         assertNull(ActivityLabels.status(r.items.single()))
+        assertEquals(3L, inv.sha256FeeSat)
+        val failed = r.items.single().copy(status = "failed", bitcoinInvoice = inv.copy(state = "failed"))
+        assertEquals(StatusTone.Failed, ActivityLabels.status(failed)!!.second)
+    }
+
+    @Test fun a_payment_from_the_own_bridge_reports_its_sha256_fee() {
+        val r = ApiJson.decodeFromString(
+            PayResponse.serializer(),
+            """{"status":"succeeded","paymentHash":"9f","preimage":"aa","amountSat":0,"feeSat":0,"bitcoinInvoice":{"amountSat":150,"description":"A sticker","paymentHash":"9f","source":"own_bridge","sha256FeeSat":3}}""",
+        )
+        assertEquals("own_bridge", r.bitcoinInvoice!!.source)
+        assertEquals(3L, r.bitcoinInvoice!!.sha256FeeSat)
     }
 }

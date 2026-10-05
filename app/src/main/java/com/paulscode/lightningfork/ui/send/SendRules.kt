@@ -5,6 +5,7 @@ import com.paulscode.lightningfork.net.ApiException
 import com.paulscode.lightningfork.net.BitcoinInvoicePayRequest
 import com.paulscode.lightningfork.net.OnchainSendRequest
 import com.paulscode.lightningfork.net.PayRequest
+import com.paulscode.lightningfork.net.PaymentTarget
 import com.paulscode.lightningfork.net.PendingSend
 import com.paulscode.lightningfork.ui.text.UiText
 
@@ -114,6 +115,13 @@ object SendRules {
      * something must change in the dashboard first.
      */
     fun retryable(code: String?): Boolean = code !in NOT_RETRYABLE
+
+    /**
+     * Whether [t] is a SHA256 invoice the node's own bridge pays: nothing of
+     * this wallet is spent, so no amount or balance here is checked.
+     */
+    fun paysFromOwnBridge(t: PaymentTarget): Boolean =
+        t.isBitcoinInvoice && t.estimate?.fromOwnBridge == true
 
     /** A sentence on where to fix what [code] says, or null. */
     fun dashboardHint(code: String?): UiText? =

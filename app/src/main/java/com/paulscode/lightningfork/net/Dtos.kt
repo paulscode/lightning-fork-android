@@ -316,6 +316,10 @@ data class PaidBitcoinInvoice(
     val amountSat: Long = 0,
     val description: String = "",
     val paymentHash: String = "",
+    /** "own_bridge" when paid from the node's own bridge. */
+    val source: String = "",
+    /** Paid from the node's own bridge: its SHA256 node's routing fee. */
+    val sha256FeeSat: Long = 0,
 )
 
 /**
@@ -397,6 +401,8 @@ data class ActivityBitcoinInvoice(
     val state: String = "",
     /** "own_bridge": paid from the node's own bridge, nothing spent here. */
     val source: String = "",
+    /** Paid from the node's own bridge: its SHA256 node's routing fee. */
+    val sha256FeeSat: Long = 0,
 )
 
 @Serializable

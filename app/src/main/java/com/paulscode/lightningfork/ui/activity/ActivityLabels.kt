@@ -35,6 +35,8 @@ object ActivityLabels {
             return when (it.state) {
                 "pending" -> UiText.of(R.string.activity_status_on_its_way) to StatusTone.Waiting
                 "returned" -> UiText.of(R.string.activity_status_returned) to StatusTone.Returned
+                // From the node's own bridge: not paid, nothing spent here.
+                "failed" -> UiText.of(R.string.activity_status_failed) to StatusTone.Failed
                 else -> null
             }
         }

@@ -35,6 +35,10 @@ data class SendResult(
     val reference: String,
     /** A Bitcoin invoice paid: its amount, in Bitcoin. */
     val bitcoinAmountSat: Long? = null,
+    /** Paid from the node's own bridge: nothing spent here. */
+    val fromOwnBridge: Boolean = false,
+    /** ...and its SHA256 node's routing fee. */
+    val sha256FeeSat: Long = 0,
 )
 
 data class SendUi(
@@ -362,6 +366,10 @@ class SendViewModel(
             return UiText.of(R.string.send_blocker_expired)
         }
         s.bitcoinInvoiceBlocker?.let { return it }
+        // Paid from the node's own bridge: nothing is spent here, so there
+        // is no amount or balance of this wallet to check; the dashboard
+        // checked the bridge's node can pay it.
+        if (SendRules.paysFromOwnBridge(t)) return null
         if (s.onchain && s.estimateError != null) return UiText.of(R.string.send_blocker_cant_send_yet)
         val amount = s.amountSat
         if (amount == null || amount <= 0) return if (s.onchain && s.sendAll) UiText.of(R.string.send_blocker_working_out_fee) else UiText.of(R.string.send_blocker_enter_amount)
@@ -441,6 +449,8 @@ class SendViewModel(
                             res.feeSat,
                             res.preimage,
                             bitcoinAmountSat = res.bitcoinInvoice?.amountSat?.takeIf { it > 0 } ?: pending.bitcoinAmountSat,
+                            fromOwnBridge = res.bitcoinInvoice?.source == com.paulscode.lightningfork.net.OWN_BRIDGE || pending.fromOwnBridge,
+                            sha256FeeSat = res.bitcoinInvoice?.sha256FeeSat ?: 0,
                         )
                         "failed" -> throw ApiException(400, PAYMENT_FAILED, code = PAYMENT_FAILED_CODE)
                         else -> throw java.io.IOException("payment ${res.status}")

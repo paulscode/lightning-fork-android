@@ -53,6 +53,9 @@
     <!-- %1$s: what the bridge's SHA256 node can send, in SHA256 sats. -->
     <string name="send_own_bridge_balance">Your bridge can send %1$s</string>
     <string name="send_own_bridge_pays">Paid from your bridge\'s SHA256 node. Nothing is spent from this wallet, and there is no fee.</string>
+    <!-- %1$s: the SHA256 invoice's amount. -->
+    <string name="send_pay_from_bridge">Pay %1$s from your bridge</string>
+    <string name="send_own_bridge_nothing_spent">Paid from your bridge\'s SHA256 node. Nothing was spent from this wallet.</string>
     <!-- %1$s: the most routing can cost, in SHA256 sats. -->
     <string name="send_own_bridge_routing">Plus up to %1$s for routing</string>
     <string name="send_try_again">Try again</string>

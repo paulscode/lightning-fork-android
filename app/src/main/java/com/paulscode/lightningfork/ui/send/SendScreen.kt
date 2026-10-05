@@ -417,6 +417,8 @@ private fun ReviewStep(ui: SendUi, vm: SendViewModel, wallet: WalletState) {
         PrimaryButton(
             when {
                 blocker != null -> blocker
+                t.isBitcoinInvoice && t.estimate?.fromOwnBridge == true ->
+                    stringResource(R.string.send_pay_from_bridge, Format.amountWithUnit(t.estimate.sha256AmountSat, ui.unit, Coin.Sha256))
                 amount != null && t.isBitcoinInvoice -> stringResource(R.string.send_pay_at_most, Format.amountWithUnit(amount, ui.unit, Coin.Btcb2))
                 amount != null -> stringResource(R.string.send_send_amount, Format.amountWithUnit(amount, ui.unit))
                 else -> stringResource(R.string.send_send)
@@ -842,8 +844,14 @@ private fun DoneStep(ui: SendUi, onClose: () -> Unit) {
             }
             Spacer(Modifier.height(24.dp))
             AppCard(Modifier.fillMaxWidth(), padding = 16.dp) {
-                if (bitcoinAmount != null) InfoRow(stringResource(R.string.send_cost), Format.amountWithUnit(r.amountSat, ui.unit, coin))
-                InfoRow(
+                if (r.fromOwnBridge) {
+                    // Nothing was spent here: the bridge's node paid, with
+                    // its own routing fee.
+                    InfoRow(stringResource(R.string.send_routing_fee), Format.amountWithUnit(r.sha256FeeSat, ui.unit, Coin.Sha256))
+                    Text(stringResource(R.string.send_own_bridge_nothing_spent), style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                }
+                if (bitcoinAmount != null && !r.fromOwnBridge) InfoRow(stringResource(R.string.send_cost), Format.amountWithUnit(r.amountSat, ui.unit, coin))
+                if (!r.fromOwnBridge) InfoRow(
                     stringResource(if (r.lightning) R.string.send_routing_fee else R.string.send_network_fee),
                     // The node reports a Lightning fee as paid; an on-chain one
                     // here is the estimate it was sent at.
@@ -852,7 +860,7 @@ private fun DoneStep(ui: SendUi, onClose: () -> Unit) {
                     },
                 )
                 // What it came to here, against the most agreed to.
-                if (bitcoinAmount != null) {
+                if (bitcoinAmount != null && !r.fromOwnBridge) {
                     InfoRow(stringResource(R.string.send_total), Format.amountWithUnit(r.amountSat + r.feeSat, ui.unit, coin), emphasize = true)
                 }
                 Row(

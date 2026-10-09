@@ -76,7 +76,7 @@ fun interface AppStrings {
                 R.string.app_pair_tor_failed -> "Tor could not start. Check the connection and try again."
                 R.string.app_pair_tor_unreachable -> "Can't reach your node over Tor right now. Try again, or pair on the same Wi-Fi as your node."
                 R.string.app_pair_certificate_mismatch -> "The node's certificate does not match the code. Pairing was stopped."
-                R.string.app_pair_code_used -> "This code has expired or was already used. Make a new one in the dashboard."
+                R.string.app_pair_code_used -> "This code has expired, was already used, or was made before the dashboard's password changed. Make a new one in the dashboard."
                 R.string.app_pair_too_many_attempts -> "Too many attempts. Wait a few minutes and try again."
                 R.string.app_pair_unreachable -> "Can't reach your node. Check that this phone is online, then try again."
                 R.string.app_wallet_tor_failed -> "Can't reach your node, and Tor could not start."

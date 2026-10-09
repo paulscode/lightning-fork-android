@@ -33,7 +33,7 @@
     <string name="pair_tor_first_start">Away from home, the phone reaches your node over Tor. The first start takes up to a minute.</string>
 
     <string name="pair_removed_title">This phone was removed</string>
-    <string name="pair_removed_text">Your node no longer accepts this phone\'s key. It was removed in the dashboard, or the dashboard\'s list of phones was reset. Your funds are on your node and are not affected.</string>
+    <string name="pair_removed_text">Your node no longer accepts this phone\'s key. It was removed in the dashboard, the dashboard\'s password was changed (which unpairs every phone), or the dashboard\'s list of phones was reset. Your funds are on your node and are not affected.</string>
     <string name="pair_key_lost_title">This phone\'s key is gone</string>
     <string name="pair_key_lost_text">Android no longer holds the key that protected this phone\'s access to your node, which happens when the screen lock is removed or the phone resets its keys. Pair the phone again. Your funds are on your node and are not affected.</string>
     <string name="pair_certificate_changed_title">Your node\'s certificate changed</string>

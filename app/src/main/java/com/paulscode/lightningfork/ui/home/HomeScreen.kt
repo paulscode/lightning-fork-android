@@ -156,7 +156,8 @@ fun HomeScreen(
                         Spacer(Modifier.height(14.dp))
                     }
                     val w = state.wallet
-                    val unconfirmedLine = stringResource(R.string.home_onchain_unconfirmed, Format.amountWithUnit(w?.onchain?.unconfirmedSat ?: 0, unit))
+                    val unconfirmedLine = stringResource(R.string.home_onchain_unconfirmed, Format.amountWithUnit(w?.onchain?.otherUnconfirmedSat ?: 0, unit))
+                    val fromChannelsLine = stringResource(R.string.home_onchain_from_channel, Format.amountWithUnit(w?.onchain?.fromChannelsSat ?: 0, unit))
                     BalanceCard(
                         title = stringResource(R.string.home_onchain_title),
                         caption = stringResource(R.string.home_onchain_caption),
@@ -166,12 +167,15 @@ fun HomeScreen(
                         onToggleUnit = onToggleUnit,
                         fiat = w?.onchain?.confirmedSat?.let { Format.fiat(it, state.fiatPrice, state.fiatCurrency) },
                         lines = buildList {
-                            val incoming = w?.onchain?.unconfirmedSat ?: 0
+                            val incoming = w?.onchain?.otherUnconfirmedSat ?: 0
                             if (incoming > 0) add(unconfirmedLine to Warning)
+                            val fromChannels = w?.onchain?.fromChannelsSat ?: 0
+                            if (fromChannels > 0) add(fromChannelsLine to Warning)
                         },
                     )
                     Spacer(Modifier.height(14.dp))
                     val openingLine = stringResource(R.string.home_lightning_opening, Format.amountWithUnit(w?.lightning?.pendingOutboundSat ?: 0, unit))
+                    val movingInLine = stringResource(R.string.home_lightning_moving_in, Format.amountWithUnit(w?.lightning?.inMotionSat ?: 0, unit))
                     val canReceiveLine = w?.lightning?.inboundSat?.let { stringResource(R.string.home_lightning_can_receive, Format.amountWithUnit(it, unit)) }
                     BalanceCard(
                         title = "Lightning",
@@ -184,6 +188,8 @@ fun HomeScreen(
                         lines = buildList {
                             val opening = w?.lightning?.pendingOutboundSat ?: 0
                             if (opening > 0) add(openingLine to Warning)
+                            val movingIn = w?.lightning?.inMotionSat ?: 0
+                            if (movingIn > 0) add(movingInLine to Warning)
                             canReceiveLine?.let { add(it to TextMuted) }
                         },
                     )

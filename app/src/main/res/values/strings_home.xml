@@ -6,8 +6,12 @@
     <string name="home_onchain_caption">Confirmed</string>
     <!-- %1$s: an amount with its unit. -->
     <string name="home_onchain_unconfirmed">%1$s unconfirmed</string>
+    <!-- %1$s: an amount with its unit, moved out of a channel (a resize) and still confirming. -->
+    <string name="home_onchain_from_channel">+%1$s from a channel, confirming</string>
     <string name="home_lightning_caption">Ready to send</string>
     <string name="home_lightning_opening">%1$s in channels opening</string>
+    <!-- %1$s: an amount with its unit, added to channels by resizes that haven't finished. -->
+    <string name="home_lightning_moving_in">+%1$s moving into channels</string>
     <string name="home_lightning_can_receive">Can receive %1$s</string>
     <!-- %1$s: how long ago, e.g. "5 min ago". -->
     <string name="home_updated">Updated %1$s</string>

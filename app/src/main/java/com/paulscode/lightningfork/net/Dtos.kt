@@ -122,13 +122,20 @@ data class OnchainBalance(
     val unconfirmedSat: Long = 0,
     val lockedSat: Long = 0,
     val reservedSat: Long = 0,
-)
+    /** Part of [unconfirmedSat]: what channel resizes moved here, confirming. */
+    val fromChannelsSat: Long = 0,
+) {
+    /** Unconfirmed coins other than those from channel resizes. */
+    val otherUnconfirmedSat: Long get() = (unconfirmedSat - fromChannelsSat).coerceAtLeast(0)
+}
 
 @Serializable
 data class LightningBalance(
     val outboundSat: Long = 0,
     val inboundSat: Long = 0,
     val pendingOutboundSat: Long = 0,
+    /** What channel resizes are adding to channels, in no balance until they lock. */
+    val inMotionSat: Long = 0,
 )
 
 @Serializable

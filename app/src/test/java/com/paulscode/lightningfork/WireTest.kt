@@ -49,12 +49,28 @@ class WireTest {
         )
         assertEquals(4_999_671L, w.onchain.confirmedSat)
         assertEquals(500_000L, w.lightning.inboundSat)
+        // From a dashboard before resizes: nothing in motion.
+        assertEquals(0L, w.lightning.inMotionSat)
+        assertEquals(0L, w.onchain.fromChannelsSat)
         val f = ApiJson.decodeFromString(
             FeesResponse.serializer(),
             """{"source":{"kind":"mempool","name":"Mempool"},"warning":null,"minimumSatPerVbyte":1,"low":{"satPerVbyte":4,"label":"Low","eta":"About an hour"},"medium":{"satPerVbyte":8,"label":"Medium","eta":"About 30 minutes"},"high":{"satPerVbyte":14,"label":"High","eta":"About 10 minutes"}}""",
         )
         assertEquals(14L, f.high.satPerVbyte)
         assertNull(f.warning)
+    }
+
+    @Test fun wallet_with_resizes_in_motion() {
+        val w = ApiJson.decodeFromString(
+            WalletResponse.serializer(),
+            """{"onchain":{"confirmedSat":100,"unconfirmedSat":301500,"lockedSat":0,"reservedSat":0,"fromChannelsSat":300000},"lightning":{"outboundSat":1499056,"inboundSat":500000,"pendingOutboundSat":0,"inMotionSat":200000},"syncedToChain":true,"blockHeight":8122,"updatedAt":1790912722}""",
+        )
+        assertEquals(200_000L, w.lightning.inMotionSat)
+        assertEquals(300_000L, w.onchain.fromChannelsSat)
+        // Its own line, so the unconfirmed line shows the rest.
+        assertEquals(1_500L, w.onchain.otherUnconfirmedSat)
+        // Never below zero, whatever the node says.
+        assertEquals(0L, w.onchain.copy(unconfirmedSat = 10).otherUnconfirmedSat)
     }
 
     @Test fun unified_request_with_its_onchain_fallback() {
